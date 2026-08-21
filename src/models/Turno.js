@@ -1,3 +1,4 @@
+// src/models/Turno.js
 const mongoose = require('mongoose');
 
 const turnoSchema = new mongoose.Schema({
@@ -6,13 +7,11 @@ const turnoSchema = new mongoose.Schema({
         ref: 'Paciente',
         required: [true, 'El ID del paciente es obligatorio'],
     },
+    // 🔥 CAMBIO: ahora es ObjectId referenciando a Especialidad
     especialidad: {
-        type: String,
-        required: true,
-        enum: {
-            values: ['cardiologia', 'neurologia', 'pediatria', 'dermatologia'],
-            message: '{VALUE} no es una especialidad válida',
-        },
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Especialidad',
+        required: [true, 'La especialidad es obligatoria']
     },
     fechaTurno: {
         type: Date,
@@ -41,7 +40,7 @@ const turnoSchema = new mongoose.Schema({
         select: false
     }
 }, {
-        timestamps: true,
+    timestamps: true,
 });
 
 turnoSchema.set('toJSON', {

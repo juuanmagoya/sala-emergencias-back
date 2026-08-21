@@ -1,3 +1,4 @@
+// src/controllers/recepcion.controller.js
 const mongoose = require('mongoose');
 const Turno = require('../models/Turno');
 const Paciente = require('../models/Paciente');
@@ -10,11 +11,12 @@ const registrarIngreso = async (req, res) => {
     try {
         const { datosPaciente, especialidad, fechaTurno, estado, observaciones } = req.body;
 
+        // 🔥 CAMBIO: especialidad ya es ObjectId, se usa directamente
         const [nuevoPaciente] = await Paciente.create([datosPaciente], { session });
 
         const [nuevoTurno] = await Turno.create([{
             paciente: nuevoPaciente._id,
-            especialidad,
+            especialidad, // 🔥 AHORA ES ObjectId
             fechaTurno,
             estado: estado || 'pendiente',
             observaciones
@@ -23,7 +25,10 @@ const registrarIngreso = async (req, res) => {
         await session.commitTransaction();
         session.endSession();
 
-        const turnoCompleto = await Turno.findById(nuevoTurno.id).populate('paciente');
+        // 🔥 CAMBIO: populate de especialidad también
+        const turnoCompleto = await Turno.findById(nuevoTurno.id)
+            .populate('paciente')
+            .populate('especialidad');
 
         return respuestaEstandar(res, 201, true, "ingreso paciente nuevo", turnoCompleto);
     } catch (error) {

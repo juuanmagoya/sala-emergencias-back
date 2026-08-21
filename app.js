@@ -1,6 +1,10 @@
 require('dotenv').config();
+
 const express = require('express');
+const cors = require('cors');
+
 const connectDB = require('./src/config/database');
+
 const app = express();
 
 connectDB();
@@ -11,6 +15,14 @@ const errorHandlerMiddleware = require('./src/middlewares/errorHandler.middlewar
 const turnosRoutes = require('./src/routes/turnos.routes');
 const pacientesRoutes = require('./src/routes/paciente.routes');
 const recepcionRoutes = require('./src/routes/recepcion.routes');
+const medicoRoutes = require('./src/routes/medico.routes');
+const consultorioRoutes = require('./src/routes/consultorio.routes');
+const historiaClinicaRoutes = require('./src/routes/historiaclinica.routes');
+const especialidadRoutes = require('./src/routes/especialidad.routes');
+
+app.use(cors({
+    origin: 'http://localhost:5173',
+}));
 
 app.use(express.json());
 app.use(auditMiddleware);
@@ -18,10 +30,15 @@ app.use(auditMiddleware);
 app.use('/api/v1/turnos', turnosRoutes);
 app.use('/api/v1/pacientes', pacientesRoutes);
 app.use('/api/v1/recepcion', recepcionRoutes);
+app.use('/api/v1/medicos', medicoRoutes);
+app.use('/api/v1/consultorios', consultorioRoutes);
+app.use('/api/v1/historias-clinicas', historiaClinicaRoutes);
+app.use('/api/v1/especialidades', especialidadRoutes);
 
 app.use(errorHandlerMiddleware);
 
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
     console.log(`===============================================`);
     console.log(`============SERVIDOR MUNICIPAL ACTIVO==========`);
