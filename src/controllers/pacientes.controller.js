@@ -34,18 +34,84 @@ const createPaciente = async (req, res) => {
     try {
         const nuevoPaciente = await Paciente.create(req.body);
 
-        return respuestaEstandar(res, 201, true, 'Paciente creado exitosamente', nuevoPaciente);
+        return respuestaEstandar(
+            res,
+            201,
+            true,
+            'Paciente creado exitosamente',
+            nuevoPaciente
+        );
 
     } catch (error) {
 
-        if (error.name === 'ValidationError') {
-            const errores = Object.values(error.errors).map(err => err.message);
+        // ============================================
+        // ERROR DE VALIDACIÓN DE MONGOOSE
+        // ============================================
 
-            return respuestaEstandar(res, 400, false, 'Error de validación', errores);
+        if (error.name === 'ValidationError') {
+            const errores = Object.values(error.errors).map(
+                err => err.message
+            );
+
+            return respuestaEstandar(
+                res,
+                400,
+                false,
+                'Error de validación',
+                errores
+            );
         }
 
-        
-        return respuestaEstandar(res, 500, false, 'Error al crear el paciente', error.message);
+        // ============================================
+        // ERROR DE DUPLICADO - MONGODB 11000
+        // ============================================
+
+        if (error.code === 11000) {
+
+            const campoDuplicado = Object.keys(error.keyPattern)[0];
+
+            if (campoDuplicado === 'email') {
+                return respuestaEstandar(
+                    res,
+                    400,
+                    false,
+                    'El correo electrónico ya está registrado',
+                    'Ya existe un paciente registrado con ese correo electrónico'
+                );
+            }
+
+            if (campoDuplicado === 'dni') {
+                return respuestaEstandar(
+                    res,
+                    400,
+                    false,
+                    'El DNI ya está registrado',
+                    'Ya existe un paciente registrado con ese DNI'
+                );
+            }
+
+            return respuestaEstandar(
+                res,
+                400,
+                false,
+                'Dato duplicado',
+                'Ya existe un paciente con uno de los datos ingresados'
+            );
+        }
+
+        // ============================================
+        // OTROS ERRORES
+        // ============================================
+
+        console.error('🔴 ERROR CREATE PACIENTE:', error);
+
+        return respuestaEstandar(
+            res,
+            500,
+            false,
+            'Error al crear el paciente',
+            error.message
+        );
     }
 };
 

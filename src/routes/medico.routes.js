@@ -1,22 +1,28 @@
 const express = require('express');
+
 const router = express.Router();
+
 const {
     getMedicos,
     createMedico,
     updateMedico,
-    deleteMedico
+    toggleActivoMedico,
+    deleteMedicoPermanente
 } = require('../controllers/medico.controller');
 
-// Obtener todos los médicos (con filtros por query params: ?id=...&especialidad=...&matricula=...)
+// Obtener médicos
 router.get('/', getMedicos);
 
-// Crear nuevo médico
+// Crear médico
 router.post('/', createMedico);
 
 // Actualizar médico
 router.put('/:id', updateMedico);
 
-// Eliminar médico (borrado lógico)
-router.delete('/:id', deleteMedico);
+// Activar / desactivar médico
+router.patch('/:id/toggle-estado', toggleActivoMedico);
+
+// Eliminar permanentemente
+router.delete('/:id/permanente', deleteMedicoPermanente);
 
 module.exports = router;

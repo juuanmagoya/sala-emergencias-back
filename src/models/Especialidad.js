@@ -23,8 +23,7 @@ const especialidadSchema = new mongoose.Schema({
     },
     activo: {
         type: Boolean,
-        default: true,
-        select: false
+        default: true
     }
 }, {
     timestamps: true
@@ -35,7 +34,7 @@ especialidadSchema.set('toJSON', {
         especialidadRetorno.id = especialidadRetorno._id;
         delete especialidadRetorno._id;
         delete especialidadRetorno.__v;
-        delete especialidadRetorno.activo;
+
     }
 });
 

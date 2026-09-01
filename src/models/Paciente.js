@@ -40,7 +40,8 @@ const pacienteSchema = new mongoose.Schema({
     telefono: {
         tipo: {
             type: String,
-            enum: ['CELULAR', 'FIJO', 'TRABAJO']
+            enum: ['CELULAR', 'FIJO', 'TRABAJO'],
+            default: 'CELULAR' 
         },
         codigoArea: {
             type: String,
@@ -52,7 +53,7 @@ const pacienteSchema = new mongoose.Schema({
             required: true,
             match: [/^[0-9]{7,10}$/, 'El número de teléfono no es válido']
         }
-    },
+    },  
     obraSocial: {
         nombre: {
             type: String,
