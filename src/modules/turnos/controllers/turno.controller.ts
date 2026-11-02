@@ -4,13 +4,19 @@ import respuestaEstandar from '../../../utils/respuestaEstandar';
 
 import turnoService from '../services/turno.service';
 
-import type { CrearTurnoRequest, TurnoIdRequest } from '../request/Turnos.request';
+import { responderErrorTurno } from '../utils/responderErrorTurno';
+
+import type {
+    CrearTurnoRequest,
+    DisponibilidadRequest,
+    TurnoIdRequest,
+} from '../request/Turnos.request';
 
 // ============================================================
 // OBTENER TURNOS
 // ============================================================
 
-export const getTurnos = async (req: Request, res: Response) => {
+export const getTurnos = async (_req: Request, res: Response) => {
     try {
         const turnos = await turnoService.getTurnos();
 
@@ -22,15 +28,82 @@ export const getTurnos = async (req: Request, res: Response) => {
             turnos
         );
 
-    } catch (error: any) {
-        console.error('🔴 Error al obtener turnos:', error);
+    } catch (error: unknown) {
+        return responderErrorTurno(
+            res,
+            error,
+            'Error interno del servidor'
+        );
+    }
+};
+
+// ============================================================
+// CONSULTAR DISPONIBILIDAD
+// ============================================================
+
+export const getDisponibilidad = async (
+    req: DisponibilidadRequest,
+    res: Response
+) => {
+    try {
+        const disponibilidad =
+            await turnoService.getDisponibilidad(
+                req.query.medicoId ?? '',
+                req.query.fecha ?? ''
+            );
 
         return respuestaEstandar(
             res,
-            500,
-            false,
-            'Error interno del servidor',
-            error.message
+            200,
+            true,
+            'Disponibilidad obtenida exitosamente',
+            disponibilidad
+        );
+
+    } catch (error: unknown) {
+        return responderErrorTurno(
+            res,
+            error,
+            'Error al consultar la disponibilidad'
+        );
+    }
+};
+
+// ============================================================
+// TURNOS DEL MÉDICO AUTENTICADO
+// ============================================================
+
+export const getMisTurnos = async (
+    req: Request,
+    res: Response
+) => {
+    try {
+        if (!req.usuario) {
+            return respuestaEstandar(
+                res,
+                401,
+                false,
+                'No autenticado'
+            );
+        }
+
+        const turnos = await turnoService.getTurnosDelMedico(
+            req.usuario.id
+        );
+
+        return respuestaEstandar(
+            res,
+            200,
+            true,
+            'Turnos del médico obtenidos exitosamente',
+            turnos
+        );
+
+    } catch (error: unknown) {
+        return responderErrorTurno(
+            res,
+            error,
+            'Error al obtener los turnos del médico'
         );
     }
 };
@@ -39,21 +112,20 @@ export const getTurnos = async (req: Request, res: Response) => {
 // CREAR TURNO
 // ============================================================
 
-export const createTurno = async (req: CrearTurnoRequest, res: Response) => {
+export const createTurno = async (
+    req: CrearTurnoRequest,
+    res: Response
+) => {
     try {
         const origenPeticion = req.headers['x-origen'];
-        const tokenSeguridad = req.headers['authorization'];
 
         console.log('🌎 Peticion realizada desde:', origenPeticion);
 
-        // Control heredado del código original, se conserva durante la migración
-        if (tokenSeguridad !== 'token123') {
-            return respuestaEstandar(res, 401, false, 'no tiene permisos');
-        }
-
-        const urgente = req.query.urgencia === 'true';
-
-        const turnoCompleto = await turnoService.createTurno(req.body, urgente);
+        // El estado inicial, la duración y la fecha de fin se derivan
+        // en el servidor. El cliente no puede imponerlos.
+        const turnoCompleto = await turnoService.createTurno(
+            req.body
+        );
 
         return respuestaEstandar(
             res,
@@ -63,30 +135,11 @@ export const createTurno = async (req: CrearTurnoRequest, res: Response) => {
             turnoCompleto
         );
 
-    } catch (error: any) {
-        console.error('🔴 Error al crear turno:', error);
-
-        // Error de validación de Mongoose
-        if (error.name === 'ValidationError') {
-            const errores = Object.values(error.errors).map(
-                (err: any) => err.message
-            );
-
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'Error de validación',
-                errores
-            );
-        }
-
-        return respuestaEstandar(
+    } catch (error: unknown) {
+        return responderErrorTurno(
             res,
-            500,
-            false,
-            'Error interno del servidor',
-            error.message
+            error,
+            'Error interno del servidor'
         );
     }
 };
@@ -95,7 +148,10 @@ export const createTurno = async (req: CrearTurnoRequest, res: Response) => {
 // ELIMINAR TURNO
 // ============================================================
 
-export const deleteTurno = async (req: TurnoIdRequest, res: Response) => {
+export const deleteTurno = async (
+    req: TurnoIdRequest,
+    res: Response
+) => {
     try {
         const { id } = req.params;
 
@@ -109,33 +165,11 @@ export const deleteTurno = async (req: TurnoIdRequest, res: Response) => {
             turnoBorrado
         );
 
-    } catch (error: any) {
-        console.error('🔴 Error al eliminar turno:', error);
-
-        if (error.message === 'El ID del turno no es válido') {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'ID de turno inválido'
-            );
-        }
-
-        if (error.message === 'Turno no encontrado') {
-            return respuestaEstandar(
-                res,
-                404,
-                false,
-                'Turno no encontrado'
-            );
-        }
-
-        return respuestaEstandar(
+    } catch (error: unknown) {
+        return responderErrorTurno(
             res,
-            500,
-            false,
-            'Error al eliminar el turno',
-            error.message
+            error,
+            'Error al eliminar el turno'
         );
     }
 };

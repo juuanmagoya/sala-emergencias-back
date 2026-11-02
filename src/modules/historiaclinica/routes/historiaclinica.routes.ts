@@ -1,28 +1,52 @@
 import { Router } from 'express';
 
+import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
+
 import {
     getHistoriasClinicas,
+    getHistorialPaciente,
     getHistoriaClinicaById,
     createHistoriaClinica,
     updateHistoriaClinica,
-    deleteHistoriaClinica,
 } from '../controllers/historiaclinica.controller';
 
 const router = Router();
 
-// Obtener historias clínicas (con filtros: ?paciente=...&estado=...&tipoAtencion=...)
-router.get('/', getHistoriasClinicas);
+// Lectura de historias clínicas: información sensible. Solo personal médico
+// (autor del registro) y administración con fines de supervisión.
+router.get(
+    '/',
+    autorizarRoles('admin', 'medico'),
+    getHistoriasClinicas
+);
 
-// Obtener historia clínica por ID
-router.get('/:id', getHistoriaClinicaById);
+router.get(
+    '/paciente/:pacienteId',
+    autorizarRoles('admin', 'medico'),
+    getHistorialPaciente
+);
 
-// Crear nueva historia clínica
-router.post('/', createHistoriaClinica);
+router.get(
+    '/:id',
+    autorizarRoles('admin', 'medico'),
+    getHistoriaClinicaById
+);
 
-// Actualizar historia clínica (incrementa la versión en cada actualización)
-router.put('/:id', updateHistoriaClinica);
+// Escritura clínica: personal médico y administración (superusuario).
+// Recepción no accede a registros clínicos. La autoría clínica por perfil
+// médico se resolverá en la etapa de atención médica.
+router.post(
+    '/',
+    autorizarRoles('admin', 'medico'),
+    createHistoriaClinica
+);
 
-// Eliminar historia clínica (borrado lógico)
-router.delete('/:id', deleteHistoriaClinica);
+router.put(
+    '/:id',
+    autorizarRoles('admin', 'medico'),
+    updateHistoriaClinica
+);
+
+// No se expone DELETE: los registros clínicos no se eliminan.
 
 export default router;

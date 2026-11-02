@@ -2,6 +2,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 import Usuario from '../modules/usuario/models/Usuario.js';
+import {
+    ROL_POR_DEFECTO,
+    esRolUsuario,
+} from '../modules/usuario/types/usuario.types.js';
+import type { UsuarioAutenticado } from '../modules/usuario/types/usuario.types.js';
+import ErrorConfiguracion from '../utils/ErrorConfiguracion.js';
 
 interface RegistrarUsuarioDTO {
     nombre: string;
@@ -13,6 +19,18 @@ interface LoginUsuarioDTO {
     email: string;
     password: string;
 }
+
+const obtenerJwtSecret = (): string => {
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+        throw new ErrorConfiguracion(
+            'JWT_SECRET no está configurado'
+        );
+    }
+
+    return jwtSecret;
+};
 
 const registrarUsuario = async ({
     nombre,
@@ -27,11 +45,13 @@ const registrarUsuario = async ({
 
     const passwordHasheada = await bcrypt.hash(password, 10);
 
+    // El rol nunca se toma del cuerpo de la solicitud: el registro público
+    // solo puede crear cuentas con el rol de menor privilegio.
     const usuario = await Usuario.create({
         nombre,
         email,
         password: passwordHasheada,
-        rol: 'admin',
+        rol: ROL_POR_DEFECTO,
     });
 
     return {
@@ -46,6 +66,10 @@ const loginUsuario = async ({
     email,
     password,
 }: LoginUsuarioDTO) => {
+    // La configuración se valida antes de autenticar: un secreto faltante es
+    // un error interno, no una credencial inválida.
+    const jwtSecret = obtenerJwtSecret();
+
     const usuario = await Usuario.findOne({ email });
 
     if (!usuario) {
@@ -61,23 +85,23 @@ const loginUsuario = async ({
         throw new Error('Credenciales inválidas');
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
-
-    if (!jwtSecret) {
-        throw new Error(
-            'JWT_SECRET no está configurado'
-        );
+    // Los usuarios heredados pueden tener un rol fuera del conjunto permitido.
+    if (!esRolUsuario(usuario.rol)) {
+        throw new Error('El usuario no tiene un rol válido');
     }
 
+    const payload: UsuarioAutenticado = {
+        id: usuario._id.toString(),
+        email: usuario.email,
+        rol: usuario.rol,
+        medico: usuario.medico?.toString(),
+    };
+
     const token = jwt.sign(
-        {
-            id: usuario._id,
-            email: usuario.email,
-            rol: usuario.rol,
-        },
+        payload,
         jwtSecret,
         {
-            expiresIn: '1h',
+            expiresIn: '5h',
         }
     );
 
@@ -88,6 +112,7 @@ const loginUsuario = async ({
             nombre: usuario.nombre,
             email: usuario.email,
             rol: usuario.rol,
+            medico: usuario.medico?.toString() ?? null,
         },
     };
 };

@@ -8,9 +8,16 @@ import type { CrearTurnoDTO } from '../dtos/TurnoDTO';
 
 export interface CrearTurnoRequest extends Request {
     body: CrearTurnoDTO;
+}
 
+// ============================================================
+// CONSULTAR DISPONIBILIDAD
+// ============================================================
+
+export interface DisponibilidadRequest extends Request {
     query: {
-        urgencia?: string;
+        medicoId?: string;
+        fecha?: string;
     };
 }
 

@@ -7,7 +7,96 @@ import historiaClinicaService from '../services/historiaclinica.service';
 import type { HistoriaClinicaCreateRequest } from '../request/HistoriaClinicaCreateRequest';
 import type { HistoriaClinicaFilterRequest } from '../request/HistoriaClinicaFilterRequest';
 import type { HistoriaClinicaIdRequest } from '../request/HistoriaClinicaIdRequest';
+import type { HistoriaClinicaPacienteRequest } from '../request/HistoriaClinicaPacienteRequest';
 import type { HistoriaClinicaUpdateRequest } from '../request/HistoriaClinicaUpdateRequest';
+
+// ============================================================
+// MAPEO DE ERRORES
+// ============================================================
+
+const MENSAJES_VALIDACION = [
+    'El ID del paciente no es válido',
+    'El ID del médico no es válido',
+    'El ID de la historia clínica no es válido',
+    'El paciente indicado no existe',
+    'El médico indicado no existe',
+    'Las observaciones son obligatorias',
+    'Las observaciones no pueden superar los 2000 caracteres',
+    'La fecha de atención no es válida',
+    'El recetario debe ser un arreglo de medicamentos',
+];
+
+const PREFIJOS_VALIDACION_MEDICAMENTO = [
+    'El medicamento en la posición',
+    'El nombre del medicamento en la posición',
+    'La dosis del medicamento en la posición',
+    'La frecuencia del medicamento en la posición',
+    'La duración del medicamento en la posición',
+    'Las indicaciones del medicamento en la posición',
+];
+
+const MENSAJES_NO_ENCONTRADO = [
+    'Historia clínica no encontrada',
+    'Paciente no encontrado',
+];
+
+const esErrorDeValidacion = (mensaje: unknown): boolean => {
+    if (typeof mensaje !== 'string') {
+        return false;
+    }
+
+    return (
+        MENSAJES_VALIDACION.includes(mensaje) ||
+        PREFIJOS_VALIDACION_MEDICAMENTO.some((prefijo) =>
+            mensaje.startsWith(prefijo)
+        )
+    );
+};
+
+const responderError = (
+    res: Response,
+    error: any,
+    mensajeGeneral: string
+) => {
+    if (error.name === 'ValidationError') {
+        const errores = Object.values(error.errors).map(
+            (err: any) => err.message
+        );
+
+        return respuestaEstandar(
+            res,
+            400,
+            false,
+            'Error de validación',
+            errores
+        );
+    }
+
+    if (error.name === 'CastError') {
+        return respuestaEstandar(
+            res,
+            400,
+            false,
+            'Identificador inválido'
+        );
+    }
+
+    if (esErrorDeValidacion(error.message)) {
+        return respuestaEstandar(res, 400, false, error.message);
+    }
+
+    if (MENSAJES_NO_ENCONTRADO.includes(error.message)) {
+        return respuestaEstandar(res, 404, false, error.message);
+    }
+
+    return respuestaEstandar(
+        res,
+        500,
+        false,
+        mensajeGeneral,
+        error.message
+    );
+};
 
 // ============================================================
 // OBTENER HISTORIAS CLÍNICAS
@@ -32,29 +121,46 @@ export const getHistoriasClinicas = async (
     } catch (error: any) {
         console.error('🔴 Error al obtener historias clínicas:', error);
 
-        if (error.message === 'El ID del paciente no es válido') {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'ID de paciente inválido'
-            );
-        }
+        return responderError(
+            res,
+            error,
+            'Error al obtener las historias clínicas'
+        );
+    }
+};
 
-        if (error.message.startsWith('Estado inválido')) {
-            return respuestaEstandar(res, 400, false, error.message);
-        }
+// ============================================================
+// OBTENER HISTORIAL CLÍNICO DE UN PACIENTE
+// ============================================================
 
-        if (error.message === 'Tipo de atención inválido') {
-            return respuestaEstandar(res, 400, false, error.message);
-        }
+export const getHistorialPaciente = async (
+    req: HistoriaClinicaPacienteRequest,
+    res: Response
+) => {
+    try {
+        const { pacienteId } = req.params;
+
+        const historial =
+            await historiaClinicaService.getHistorialPaciente(pacienteId);
 
         return respuestaEstandar(
             res,
-            500,
-            false,
-            'Error al obtener las historias clínicas',
-            error.message
+            200,
+            true,
+            'Historial clínico obtenido exitosamente',
+            historial
+        );
+
+    } catch (error: any) {
+        console.error(
+            '🔴 Error al obtener el historial clínico del paciente:',
+            error
+        );
+
+        return responderError(
+            res,
+            error,
+            'Error al obtener el historial clínico del paciente'
         );
     }
 };
@@ -70,7 +176,8 @@ export const getHistoriaClinicaById = async (
     try {
         const { id } = req.params;
 
-        const historia = await historiaClinicaService.getHistoriaClinicaById(id);
+        const historia =
+            await historiaClinicaService.getHistoriaClinicaById(id);
 
         return respuestaEstandar(
             res,
@@ -83,30 +190,10 @@ export const getHistoriaClinicaById = async (
     } catch (error: any) {
         console.error('🔴 Error al obtener la historia clínica:', error);
 
-        if (error.message === 'El ID de la historia clínica no es válido') {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'ID de historia clínica inválido'
-            );
-        }
-
-        if (error.message === 'Historia clínica no encontrada') {
-            return respuestaEstandar(
-                res,
-                404,
-                false,
-                'Historia clínica no encontrada'
-            );
-        }
-
-        return respuestaEstandar(
+        return responderError(
             res,
-            500,
-            false,
-            'Error al obtener la historia clínica',
-            error.message
+            error,
+            'Error al obtener la historia clínica'
         );
     }
 };
@@ -134,26 +221,10 @@ export const createHistoriaClinica = async (
     } catch (error: any) {
         console.error('🔴 Error al crear la historia clínica:', error);
 
-        if (error.name === 'ValidationError') {
-            const errores = Object.values(error.errors).map(
-                (err: any) => err.message
-            );
-
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'Error de validación',
-                errores
-            );
-        }
-
-        return respuestaEstandar(
+        return responderError(
             res,
-            500,
-            false,
-            'Error al crear la historia clínica',
-            error.message
+            error,
+            'Error al crear la historia clínica'
         );
     }
 };
@@ -170,7 +241,10 @@ export const updateHistoriaClinica = async (
         const { id } = req.params;
 
         const historiaActualizada =
-            await historiaClinicaService.updateHistoriaClinica(id, req.body);
+            await historiaClinicaService.updateHistoriaClinica(
+                id,
+                req.body
+            );
 
         return respuestaEstandar(
             res,
@@ -183,113 +257,10 @@ export const updateHistoriaClinica = async (
     } catch (error: any) {
         console.error('🔴 Error al actualizar la historia clínica:', error);
 
-        if (error.message === 'El ID de la historia clínica no es válido') {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'ID de historia clínica inválido'
-            );
-        }
-
-        if (error.message === 'Historia clínica no encontrada') {
-            return respuestaEstandar(
-                res,
-                404,
-                false,
-                'Historia clínica no encontrada'
-            );
-        }
-
-        if (error.name === 'ValidationError') {
-            const errores = Object.values(error.errors).map(
-                (err: any) => err.message
-            );
-
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'Error de validación',
-                errores
-            );
-        }
-
-        if (error.name === 'CastError') {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'ID de historia clínica inválido'
-            );
-        }
-
-        return respuestaEstandar(
+        return responderError(
             res,
-            500,
-            false,
-            'Error al actualizar la historia clínica',
-            error.message
-        );
-    }
-};
-
-// ============================================================
-// ELIMINAR HISTORIA CLÍNICA
-// ============================================================
-
-export const deleteHistoriaClinica = async (
-    req: HistoriaClinicaIdRequest,
-    res: Response
-) => {
-    try {
-        const { id } = req.params;
-
-        await historiaClinicaService.deleteHistoriaClinica(id);
-
-        return respuestaEstandar(
-            res,
-            200,
-            true,
-            'Historia clínica eliminada exitosamente'
-        );
-
-    } catch (error: any) {
-        console.error('🔴 Error al eliminar la historia clínica:', error);
-
-        if (error.message === 'El ID de la historia clínica no es válido') {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'ID de historia clínica inválido'
-            );
-        }
-
-        if (error.message === 'Historia clínica no encontrada') {
-            return respuestaEstandar(
-                res,
-                404,
-                false,
-                'Historia clínica no encontrada'
-            );
-        }
-
-        if (error.name === 'CastError') {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'ID con formato inválido'
-            );
-        }
-
-        return respuestaEstandar(
-            res,
-            500,
-            false,
-            'Error al eliminar la historia clínica',
-            error.message
+            error,
+            'Error al actualizar la historia clínica'
         );
     }
 };

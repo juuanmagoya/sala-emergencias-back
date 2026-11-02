@@ -1,5 +1,7 @@
 import { Router } from 'express';
 
+import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
+
 import {
     getConsultorios,
     createConsultorio,
@@ -9,17 +11,19 @@ import {
 
 const router = Router();
 
-// Obtener todos los consultorios
-// Filtros: ?numero=101&piso=1&id=...
-router.get('/', getConsultorios);
+// Consulta de consultorios: información operativa necesaria para recepción
+// y para el personal médico.
+router.get(
+    '/',
+    autorizarRoles('admin', 'medico', 'recepcionista'),
+    getConsultorios
+);
 
-// Crear nuevo consultorio
-router.post('/', createConsultorio);
+// Altas, cambios y bajas de consultorios: solo administración.
+router.post('/', autorizarRoles('admin'), createConsultorio);
 
-// Actualizar consultorio
-router.put('/:id', updateConsultorio);
+router.put('/:id', autorizarRoles('admin'), updateConsultorio);
 
-// Eliminar consultorio (borrado lógico)
-router.delete('/:id', deleteConsultorio);
+router.delete('/:id', autorizarRoles('admin'), deleteConsultorio);
 
 export default router;

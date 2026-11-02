@@ -1,5 +1,7 @@
 import { Router } from 'express';
 
+import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
+
 import {
     getPacientes,
     createPaciente,
@@ -9,16 +11,21 @@ import {
 
 const router = Router();
 
-// Obtener todos los pacientes (con filtros opcionales)
-router.get('/', getPacientes);
+// Consulta de pacientes: recepción los administra y el personal médico
+// necesita los datos para la atención.
+router.get(
+    '/',
+    autorizarRoles('admin', 'medico', 'recepcionista'),
+    getPacientes
+);
 
-// Crear nuevo paciente
-router.post('/', createPaciente);
+// Registro y actualización de datos demográficos: administración y recepción.
+router.post('/', autorizarRoles('admin', 'recepcionista'), createPaciente);
 
-// Actualizar paciente
-router.put('/:id', updatePaciente);
+router.put('/:id', autorizarRoles('admin', 'recepcionista'), updatePaciente);
 
-// Eliminar paciente
-router.delete('/:id', deletePaciente);
+// El borrado es físico y está condicionado a que no existan turnos activos.
+// Se reserva a administración.
+router.delete('/:id', autorizarRoles('admin'), deletePaciente);
 
 export default router;

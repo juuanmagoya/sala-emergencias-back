@@ -1,5 +1,7 @@
 import { Router } from 'express';
 
+import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
+
 import {
     getEspecialidades,
     createEspecialidad,
@@ -10,19 +12,29 @@ import {
 
 const router = Router();
 
-// Obtener todas las especialidades
-router.get('/', getEspecialidades);
+// Catálogo de especialidades: lectura para todo el personal autenticado
+// (recepción asigna turnos por especialidad).
+router.get(
+    '/',
+    autorizarRoles('admin', 'medico', 'recepcionista'),
+    getEspecialidades
+);
 
-// Crear nueva especialidad
-router.post('/', createEspecialidad);
+// Mantenimiento del catálogo: solo administración.
+router.post('/', autorizarRoles('admin'), createEspecialidad);
 
-// Actualizar especialidad
-router.put('/:id', updateEspecialidad);
+router.put('/:id', autorizarRoles('admin'), updateEspecialidad);
 
-// Cambiar estado de especialidad
-router.patch('/:id/toggle-estado', toggleActivoEspecialidad);
+router.patch(
+    '/:id/toggle-estado',
+    autorizarRoles('admin'),
+    toggleActivoEspecialidad
+);
 
-// Eliminar especialidad permanentemente
-router.delete('/:id/permanente', deleteEspecialidadPermanente);
+router.delete(
+    '/:id/permanente',
+    autorizarRoles('admin'),
+    deleteEspecialidadPermanente
+);
 
 export default router;

@@ -4,7 +4,11 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\"",
+    "test:auth": "node --import tsx --test \"src/modules/usuario/__tests__/*.test.ts\" \"src/middlewares/__tests__/*.test.ts\" \"src/routes/__tests__/*.test.ts\" \"src/config/__tests__/*.test.ts\"",
+    "test:historiaclinica": "node --import tsx --test \"src/modules/historiaclinica/__tests__/*.test.ts\"",
+    "migrar:historias-clinicas": "tsx src/migraciones/migrarHistoriasClinicas.ts",
+    "diagnosticar:turnos": "tsx src/migraciones/normalizarTurnos.ts",
     "dev": "tsx watch src/server.ts"
   },
   "keywords": [],
@@ -16,6 +20,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.4"
   },

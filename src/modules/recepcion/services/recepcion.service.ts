@@ -2,11 +2,12 @@ import mongoose from 'mongoose';
 
 import PacienteModel from '../../pacientes/models/Paciente';
 import TurnoModel from '../../turnos/models/Turno';
+import turnoService from '../../turnos/services/turno.service';
 
 import type { CrearIngresoDTO } from '../dtos/CrearIngresoDTO';
 
 // Este módulo no define un modelo propio: el ingreso crea un Paciente
-// y un Turno reutilizando los modelos de sus módulos respectivos.
+// y un Turno reutilizando los modelos y las reglas de sus módulos.
 
 class RecepcionService {
     // ============================================================
@@ -21,8 +22,8 @@ class RecepcionService {
             const {
                 datosPaciente,
                 especialidad,
+                medico,
                 fechaTurno,
-                estado,
                 observaciones,
             } = ingreso;
 
@@ -32,35 +33,42 @@ class RecepcionService {
             );
 
             if (!nuevoPaciente) {
-                throw new Error('No se pudo registrar el paciente');
+                throw new Error(
+                    'No se pudo registrar el paciente'
+                );
             }
 
-            const [nuevoTurno] = await TurnoModel.create(
-                [
-                    {
-                        paciente: nuevoPaciente._id,
-                        especialidad,
-                        fechaTurno,
-                        estado,
-                        observaciones,
-                    },
-                ],
-                { session }
+            // Reutiliza las validaciones de disponibilidad y crea el
+            // turno dentro de la misma transacción.
+            const turnoCreado = await turnoService.createTurno(
+                {
+                    paciente: nuevoPaciente._id.toString(),
+                    especialidad,
+                    medico,
+                    fechaTurno,
+                    observaciones,
+                },
+                {
+                    session,
+                    // El paciente se acaba de crear en esta transacción.
+                    validarPaciente: false,
+                    poblarRespuesta: false,
+                }
             );
-
-            if (!nuevoTurno) {
-                throw new Error('No se pudo registrar el turno del ingreso');
-            }
 
             await session.commitTransaction();
             session.endSession();
 
-            // Devolver el turno con sus datos completos
-            const turnoCompleto = await TurnoModel.findById(nuevoTurno._id)
+            // Se popula después del commit para no depender de lecturas
+            // de documentos aún no confirmados.
+            const turnoCompleto = await TurnoModel.findById(
+                turnoCreado._id
+            )
                 .populate('paciente')
-                .populate('especialidad');
+                .populate('especialidad')
+                .populate('medico');
 
-            return turnoCompleto;
+            return turnoCompleto ?? turnoCreado;
 
         } catch (error) {
             await session.abortTransaction();

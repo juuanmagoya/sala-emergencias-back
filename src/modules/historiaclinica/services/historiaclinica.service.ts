@@ -1,78 +1,314 @@
 import mongoose from 'mongoose';
 
 import HistoriaClinicaModel from '../models/HistoriaClinica';
+import MedicoModel from '../../medico/models/Medico';
+import PacienteModel from '../../pacientes/models/Paciente';
 
 import type { ActualizarHistoriaClinicaDTO } from '../dtos/ActualizarHistoriaClinicaDTO';
 import type { CrearHistoriaClinicaDTO } from '../dtos/CrearHistoriaClinicaDTO';
-import type {
-    EstadoHistoriaClinica,
-    TipoAtencion,
-} from '../interfaces/HistoriaClinica.interface';
+import type { IMedicamentoRecetado } from '../interfaces/HistoriaClinica.interface';
 
-const ESTADOS_VALIDOS: EstadoHistoriaClinica[] = [
-    'EN_ATENCION',
-    'FINALIZADA',
-    'OBSERVACION',
-];
+const LONGITUD_MAXIMA_OBSERVACIONES = 2000;
 
-const TIPOS_ATENCION_VALIDOS: TipoAtencion[] = [
-    'URGENCIA',
-    'CONSULTA_GENERAL',
-    'CONTROL',
-    'EMERGENCIA',
-];
+// ============================================================
+// NORMALIZACIÓN DE TEXTOS
+// ============================================================
+
+const normalizarTextoObligatorio = (
+    valor: unknown,
+    mensaje: string
+): string => {
+    if (typeof valor !== 'string' || !valor.trim()) {
+        throw new Error(mensaje);
+    }
+
+    return valor.trim();
+};
+
+const normalizarTextoOpcional = (
+    valor: unknown,
+    mensaje: string
+): string | undefined => {
+    if (valor === undefined || valor === null) {
+        return undefined;
+    }
+
+    if (typeof valor !== 'string') {
+        throw new Error(mensaje);
+    }
+
+    return valor.trim();
+};
 
 class HistoriaClinicaService {
     // ============================================================
-    // OBTENER HISTORIAS CLÍNICAS (con filtros opcionales)
+    // VALIDACIONES
+    // ============================================================
+
+    private validarObjectId(valor: string, mensaje: string): string {
+        if (
+            typeof valor !== 'string' ||
+            !mongoose.Types.ObjectId.isValid(valor)
+        ) {
+            throw new Error(mensaje);
+        }
+
+        return valor;
+    }
+
+    private async validarPaciente(paciente: string) {
+        this.validarObjectId(
+            paciente,
+            'El ID del paciente no es válido'
+        );
+
+        const existe = await PacienteModel.exists({ _id: paciente });
+
+        if (!existe) {
+            throw new Error('El paciente indicado no existe');
+        }
+    }
+
+    private async validarMedico(medico: string) {
+        this.validarObjectId(medico, 'El ID del médico no es válido');
+
+        const existe = await MedicoModel.exists({ _id: medico });
+
+        if (!existe) {
+            throw new Error('El médico indicado no existe');
+        }
+    }
+
+    private validarObservaciones(observaciones: unknown): string {
+        if (typeof observaciones !== 'string' || !observaciones.trim()) {
+            throw new Error('Las observaciones son obligatorias');
+        }
+
+        const observacionesNormalizadas = observaciones.trim();
+
+        if (
+            observacionesNormalizadas.length >
+            LONGITUD_MAXIMA_OBSERVACIONES
+        ) {
+            throw new Error(
+                `Las observaciones no pueden superar los ${LONGITUD_MAXIMA_OBSERVACIONES} caracteres`
+            );
+        }
+
+        return observacionesNormalizadas;
+    }
+
+    private validarFechaAtencion(fecha: unknown): Date | undefined {
+        if (fecha === undefined || fecha === null) {
+            return undefined;
+        }
+
+        if (typeof fecha !== 'string' && !(fecha instanceof Date)) {
+            throw new Error('La fecha de atención no es válida');
+        }
+
+        const fechaConvertida =
+            fecha instanceof Date ? new Date(fecha.getTime()) : new Date(fecha);
+
+        if (Number.isNaN(fechaConvertida.getTime())) {
+            throw new Error('La fecha de atención no es válida');
+        }
+
+        return fechaConvertida;
+    }
+
+    private validarRecetario(recetario: unknown): IMedicamentoRecetado[] {
+        if (!Array.isArray(recetario)) {
+            throw new Error(
+                'El recetario debe ser un arreglo de medicamentos'
+            );
+        }
+
+        return recetario.map((medicamento: unknown, indice: number) => {
+            const posicion = indice + 1;
+
+            if (
+                !medicamento ||
+                typeof medicamento !== 'object' ||
+                Array.isArray(medicamento)
+            ) {
+                throw new Error(
+                    `El medicamento en la posición ${posicion} no es válido`
+                );
+            }
+
+            const datosMedicamento = medicamento as Record<string, unknown>;
+
+            const nombre = normalizarTextoObligatorio(
+                datosMedicamento.nombre,
+                `El nombre del medicamento en la posición ${posicion} es obligatorio`
+            );
+
+            const dosis = normalizarTextoObligatorio(
+                datosMedicamento.dosis,
+                `La dosis del medicamento en la posición ${posicion} es obligatoria`
+            );
+
+            const frecuencia = normalizarTextoObligatorio(
+                datosMedicamento.frecuencia,
+                `La frecuencia del medicamento en la posición ${posicion} es obligatoria`
+            );
+
+            const duracion = normalizarTextoOpcional(
+                datosMedicamento.duracion,
+                `La duración del medicamento en la posición ${posicion} debe ser un texto`
+            );
+
+            const indicaciones = normalizarTextoOpcional(
+                datosMedicamento.indicaciones,
+                `Las indicaciones del medicamento en la posición ${posicion} deben ser un texto`
+            );
+
+            const medicamentoNormalizado: IMedicamentoRecetado = {
+                nombre,
+                dosis,
+                frecuencia,
+            };
+
+            if (duracion !== undefined) {
+                medicamentoNormalizado.duracion = duracion;
+            }
+
+            if (indicaciones !== undefined) {
+                medicamentoNormalizado.indicaciones = indicaciones;
+            }
+
+            return medicamentoNormalizado;
+        });
+    }
+
+    // ============================================================
+    // ARMADO DE DATOS (solo campos permitidos)
+    // ============================================================
+
+    private prepararDatosCreacion(datos: CrearHistoriaClinicaDTO) {
+        const datosCreacion: {
+            paciente: string;
+            medico: string;
+            observaciones: string;
+            recetario: IMedicamentoRecetado[];
+            fechaAtencion?: Date;
+        } = {
+            paciente: datos.paciente,
+            medico: datos.medico,
+            observaciones: this.validarObservaciones(datos.observaciones),
+            recetario:
+                datos.recetario === undefined
+                    ? []
+                    : this.validarRecetario(datos.recetario),
+        };
+
+        const fechaAtencion = this.validarFechaAtencion(
+            datos.fechaAtencion
+        );
+
+        if (fechaAtencion) {
+            datosCreacion.fechaAtencion = fechaAtencion;
+        }
+
+        return datosCreacion;
+    }
+
+    private async prepararDatosActualizacion(
+        datos: ActualizarHistoriaClinicaDTO
+    ) {
+        const datosActualizados: Record<string, unknown> = {};
+
+        if (datos.paciente !== undefined) {
+            await this.validarPaciente(datos.paciente);
+            datosActualizados.paciente = datos.paciente;
+        }
+
+        if (datos.medico !== undefined) {
+            await this.validarMedico(datos.medico);
+            datosActualizados.medico = datos.medico;
+        }
+
+        if (datos.fechaAtencion !== undefined) {
+            const fechaAtencion = this.validarFechaAtencion(
+                datos.fechaAtencion
+            );
+
+            if (fechaAtencion) {
+                datosActualizados.fechaAtencion = fechaAtencion;
+            }
+        }
+
+        if (datos.observaciones !== undefined) {
+            datosActualizados.observaciones = this.validarObservaciones(
+                datos.observaciones
+            );
+        }
+
+        if (datos.recetario !== undefined) {
+            datosActualizados.recetario = this.validarRecetario(
+                datos.recetario
+            );
+        }
+
+        return datosActualizados;
+    }
+
+    // ============================================================
+    // OBTENER HISTORIAS CLÍNICAS
     // ============================================================
 
     async getHistoriasClinicas(filtro: {
         paciente?: string;
-        estado?: string;
-        tipoAtencion?: string;
+        medico?: string;
     }) {
-        const { paciente, estado, tipoAtencion } = filtro;
+        const { paciente, medico } = filtro;
 
-        const filtroMongo: Record<string, any> = { activo: true };
+        const filtroMongo: Record<string, any> = {};
 
-        // Filtrar por paciente (el más importante)
         if (paciente) {
-            if (!mongoose.Types.ObjectId.isValid(paciente)) {
-                throw new Error('El ID del paciente no es válido');
-            }
+            this.validarObjectId(
+                paciente,
+                'El ID del paciente no es válido'
+            );
 
             filtroMongo.paciente = paciente;
         }
 
-        // Filtrar por estado
-        if (estado) {
-            if (!ESTADOS_VALIDOS.includes(estado as EstadoHistoriaClinica)) {
-                throw new Error(
-                    'Estado inválido. Opciones: EN_ATENCION, FINALIZADA, OBSERVACION'
-                );
-            }
+        if (medico) {
+            this.validarObjectId(medico, 'El ID del médico no es válido');
 
-            filtroMongo.estado = estado;
+            filtroMongo.medico = medico;
         }
 
-        // Filtrar por tipo de atención
-        if (tipoAtencion) {
-            if (!TIPOS_ATENCION_VALIDOS.includes(tipoAtencion as TipoAtencion)) {
-                throw new Error('Tipo de atención inválido');
-            }
-
-            filtroMongo.tipoAtencion = tipoAtencion;
-        }
-
-        console.log('🟢 Filtro historias clínicas:', filtroMongo);
-
-        const historias = await HistoriaClinicaModel.find(filtroMongo)
+        return await HistoriaClinicaModel.find(filtroMongo)
             .populate('paciente', 'nombre dni')
             .populate('medico', 'nombre apellido matricula')
-            .sort({ fechaAtencion: -1 }); // Ordenar por fecha (más reciente primero)
+            .sort({ fechaAtencion: -1 });
+    }
 
-        return historias;
+    // ============================================================
+    // OBTENER HISTORIAL CLÍNICO DE UN PACIENTE
+    // ============================================================
+
+    async getHistorialPaciente(pacienteId: string) {
+        this.validarObjectId(
+            pacienteId,
+            'El ID del paciente no es válido'
+        );
+
+        const pacienteExiste = await PacienteModel.exists({
+            _id: pacienteId,
+        });
+
+        if (!pacienteExiste) {
+            throw new Error('Paciente no encontrado');
+        }
+
+        return await HistoriaClinicaModel.find({ paciente: pacienteId })
+            .populate('paciente', 'nombre dni')
+            .populate('medico', 'nombre apellido matricula')
+            .sort({ fechaAtencion: -1 });
     }
 
     // ============================================================
@@ -80,13 +316,17 @@ class HistoriaClinicaService {
     // ============================================================
 
     async getHistoriaClinicaById(id: string) {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            throw new Error('El ID de la historia clínica no es válido');
-        }
+        this.validarObjectId(
+            id,
+            'El ID de la historia clínica no es válido'
+        );
 
-        const historia = await HistoriaClinicaModel.findOne({ _id: id, activo: true })
+        const historia = await HistoriaClinicaModel.findById(id)
             .populate('paciente', 'nombre dni email telefono')
-            .populate('medico', 'nombre apellido matricula especialidad');
+            .populate(
+                'medico',
+                'nombre apellido matricula especialidad'
+            );
 
         if (!historia) {
             throw new Error('Historia clínica no encontrada');
@@ -100,74 +340,54 @@ class HistoriaClinicaService {
     // ============================================================
 
     async createHistoriaClinica(datos: CrearHistoriaClinicaDTO) {
-        const nuevaHistoria = await HistoriaClinicaModel.create(datos);
+        await Promise.all([
+            this.validarPaciente(datos.paciente),
+            this.validarMedico(datos.medico),
+        ]);
 
-        // Devolver la historia con sus datos completos
-        const historiaCompleta = await HistoriaClinicaModel.findById(
-            nuevaHistoria._id
-        )
+        const datosCreacion = this.prepararDatosCreacion(datos);
+
+        const nuevaHistoria =
+            await HistoriaClinicaModel.create(datosCreacion);
+
+        return await HistoriaClinicaModel.findById(nuevaHistoria._id)
             .populate('paciente', 'nombre dni')
             .populate('medico', 'nombre apellido matricula');
-
-        return historiaCompleta;
     }
 
     // ============================================================
     // ACTUALIZAR HISTORIA CLÍNICA
     // ============================================================
 
-    async updateHistoriaClinica(id: string, datos: ActualizarHistoriaClinicaDTO) {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            throw new Error('El ID de la historia clínica no es válido');
-        }
+    async updateHistoriaClinica(
+        id: string,
+        datos: ActualizarHistoriaClinicaDTO
+    ) {
+        this.validarObjectId(
+            id,
+            'El ID de la historia clínica no es válido'
+        );
 
-        // Verificar si existe y está activa
-        const historiaExistente = await HistoriaClinicaModel.findOne({
-            _id: id,
-            activo: true,
-        });
+        const historiaExistente =
+            await HistoriaClinicaModel.findById(id);
 
         if (!historiaExistente) {
             throw new Error('Historia clínica no encontrada');
         }
 
-        // Incrementar la versión al actualizar
-        const datosActualizados = {
-            ...datos,
-            $inc: { version: 1 },
-        };
+        const datosActualizados =
+            await this.prepararDatosActualizacion(datos);
 
-        const historiaActualizada = await HistoriaClinicaModel.findByIdAndUpdate(
+        return await HistoriaClinicaModel.findByIdAndUpdate(
             id,
             datosActualizados,
-            { new: true, runValidators: true }
+            {
+                new: true,
+                runValidators: true,
+            }
         )
             .populate('paciente', 'nombre dni')
             .populate('medico', 'nombre apellido matricula');
-
-        return historiaActualizada;
-    }
-
-    // ============================================================
-    // ELIMINAR HISTORIA CLÍNICA (borrado lógico)
-    // ============================================================
-
-    async deleteHistoriaClinica(id: string) {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            throw new Error('El ID de la historia clínica no es válido');
-        }
-
-        const historiaEliminada = await HistoriaClinicaModel.findByIdAndUpdate(
-            id,
-            { activo: false },
-            { new: true }
-        );
-
-        if (!historiaEliminada) {
-            throw new Error('Historia clínica no encontrada');
-        }
-
-        return historiaEliminada;
     }
 }
 

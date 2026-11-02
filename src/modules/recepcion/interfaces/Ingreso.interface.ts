@@ -9,7 +9,9 @@ import type { EstadoTurno } from '../../turnos/interfaces/Turno.interface';
 export interface IIngreso {
     paciente: Types.ObjectId;
     especialidad: Types.ObjectId;
+    medico: Types.ObjectId;
     fechaTurno: Date;
-    estado?: EstadoTurno;
+    fechaFin: Date;
+    estado: EstadoTurno;
     observaciones?: string;
 }

@@ -4,6 +4,8 @@ import respuestaEstandar from '../../../utils/respuestaEstandar';
 
 import recepcionService from '../services/recepcion.service';
 
+import { responderErrorTurno } from '../../turnos/utils/responderErrorTurno';
+
 import type { RegistrarIngresoRequest } from '../request/RegistrarIngresoRequest';
 
 // ============================================================
@@ -26,30 +28,11 @@ export const registrarIngreso = async (
             turnoCompleto
         );
 
-    } catch (error: any) {
-        console.error('🔴 Error al registrar el ingreso:', error);
-
-        // Error de validación de Mongoose
-        if (error.name === 'ValidationError') {
-            const errores = Object.values(error.errors).map(
-                (err: any) => err.message
-            );
-
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'Error de validación',
-                errores
-            );
-        }
-
-        return respuestaEstandar(
+    } catch (error: unknown) {
+        return responderErrorTurno(
             res,
-            500,
-            false,
-            'Error al registrar el ingreso',
-            error.message
+            error,
+            'Error al registrar el ingreso'
         );
     }
 };

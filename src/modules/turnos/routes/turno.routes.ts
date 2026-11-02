@@ -1,20 +1,46 @@
 import { Router } from 'express';
 
+import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
+
 import {
     getTurnos,
+    getDisponibilidad,
+    getMisTurnos,
     createTurno,
     deleteTurno,
 } from '../controllers/turno.controller';
 
 const router = Router();
 
-// Obtener todos los turnos activos
-router.get('/', getTurnos);
+// Consulta de la cola de turnos: la usan recepción, el personal médico
+// (para ver la demanda) y la administración.
+router.get(
+    '/',
+    autorizarRoles('admin', 'medico', 'recepcionista'),
+    getTurnos
+);
 
-// Crear nuevo turno (admite query param ?urgencia=true)
-router.post('/', createTurno);
+// Horarios libres de un médico para una fecha local (YYYY-MM-DD).
+// La duración siempre surge del perfil del médico.
+router.get(
+    '/disponibilidad',
+    autorizarRoles('admin', 'medico', 'recepcionista'),
+    getDisponibilidad
+);
 
-// Eliminar turno (borrado lógico)
-router.delete('/:id', deleteTurno);
+// Agenda del médico autenticado. El perfil se resuelve desde la relación
+// explícita Usuario.medico; no se acepta un médico por parámetro.
+router.get(
+    '/mis-turnos',
+    autorizarRoles('medico'),
+    getMisTurnos
+);
+
+// Alta de turnos: operación de recepción/administración.
+// Ya no se usa la credencial estática `token123`: la autorización es por JWT.
+router.post('/', autorizarRoles('admin', 'recepcionista'), createTurno);
+
+// Cancelación (borrado lógico): operación de recepción/administración.
+router.delete('/:id', autorizarRoles('admin', 'recepcionista'), deleteTurno);
 
 export default router;

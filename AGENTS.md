@@ -24,7 +24,10 @@ Migración gradual de JS (CommonJS) a TypeScript en curso en la rama `develop`.
 - Middlewares en orden: `cors` (origin localhost:5173) → `express.json()` → auditoría → rutas públicas de auth → `authMiddleware` (JWT Bearer) → rutas protegidas → 404.
 - Módulos ya migrados a TypeScript: `auth`, `medico`, `especialidad`, `pacientes`, `consultorio`, `turnos`, `recepcion`, `historiaclinica` (montada como `/api/v1/historias-clinicas`).
   - `recepcion` no define un modelo Mongoose propio: su service reutiliza los modelos de los módulos `pacientes` y `turnos` (el ingreso crea ambas entidades en una transacción de Mongoose).
-  - `historiaclinica` lleva control de versiones: cada `PUT` incrementa el campo `version` con `$inc` y valida filtros de query (`?paciente=&estado=&tipoAtencion=`).
+  - `historiaclinica` registra atenciones con `paciente`, `medico`, `fechaAtencion`, `observaciones` y `recetario`.
+    No tiene borrado lógico ni endpoint `DELETE` (los registros clínicos no se eliminan). El listado admite
+    `?paciente=` y `?medico=`, y `GET /paciente/:pacienteId` devuelve el historial ordenado por `fechaAtencion` descendente.
+    Los documentos legacy se migran con `npm run migrar:historias-clinicas` (dry-run por defecto).
 - La migración por módulos está completa: ya no queda código `.js` de dominio heredado.
 - Los archivos de auth (`src/routes/auth.routes.ts`, `src/controllers/auth.controller.ts`, `src/services/auth.service.ts`) quedaron en TS pero fuera de `src/modules/` (modelo en `src/modules/usuario/`). Reubicarlos en el patrón de módulos solo como tarea explícita.
 
@@ -36,15 +39,18 @@ Migración gradual de JS (CommonJS) a TypeScript en curso en la rama `develop`.
 - Respuesta única de los endpoints: usar `src/utils/respuestaEstandar.ts` → `{ success, timestamp, message, total, data }`.
 - Validaciones y mensajes de negocio solo en el service; el controller traduce `error.message` a status HTTP
   (400 validación/duplicado, 404 no encontrado, 500 resto).
-- Config por `.env`: `DATABASE_URL_ATLAS`, `PORT`, `JWT_SECRET`. Nunca commitear `.env`.
+- Config por `.env`: `DATABASE_URL_ATLAS`, `PORT`, `JWT_SECRET`. Opcionales: `LOGIN_RATE_LIMIT_MAX` (5)
+  y `LOGIN_RATE_LIMIT_WINDOW_MS` (900000). Nunca commitear `.env`.
 
 ## Estado actual (no romper más)
 
 - Migración sin commit: módulos viejos eliminados del working tree, `src/modules/` aún untracked.
 - Seeds en `src/seed/` apuntan a modelos movidos/borrados — arreglarlos solo como tarea explícita.
 - ESLint no operativo: `eslint.config.mjs` usa plugins ausentes de `package.json`.
-- El endpoint de crear turno conserva un control heredado de cabecera (`authorization: token123`)
-  documentado en `turno.controller.ts`; decidir con el equipo si se retira.
+- La credencial heredada `authorization: token123` fue retirada: crear o cancelar turnos exige JWT con
+  rol `admin` o `recepcionista`.
+- Autorización por roles aplicada en cada router (ver comentarios de las rutas). `Usuario.medico` es una
+  referencia opcional y única a `Medico`, válida solo para usuarios con rol `medico`.
 
 ## Reglas de trabajo
 

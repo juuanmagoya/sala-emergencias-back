@@ -21,6 +21,14 @@ const turnoSchema = new Schema<ITurno>(
             required: [true, 'La especialidad es obligatoria'],
         },
 
+        // Obligatorio para turnos nuevos. Los turnos históricos sin médico
+        // se conservan y se muestran con `medico: null`; no se reasignan.
+        medico: {
+            type: Schema.Types.ObjectId,
+            ref: 'Medico',
+            required: [true, 'El médico es obligatorio'],
+        },
+
         fechaTurno: {
             type: Date,
             required: [
@@ -35,6 +43,17 @@ const turnoSchema = new Schema<ITurno>(
             },
         },
 
+        // Se calcula en el servidor al reservar, con la duración del médico.
+        // Guardarlo evita que la ocupación cambie si luego se modifica
+        // `Medico.duracionTurno`.
+        fechaFin: {
+            type: Date,
+            required: [
+                true,
+                'La fecha de fin del turno es obligatoria',
+            ],
+        },
+
         estado: {
             type: String,
             enum: {
@@ -45,6 +64,8 @@ const turnoSchema = new Schema<ITurno>(
                 ],
                 message: '{VALUE} no es un estado válido',
             },
+            default: 'pendiente',
+            required: true,
         },
 
         observaciones: {
@@ -63,6 +84,39 @@ const turnoSchema = new Schema<ITurno>(
     },
     {
         timestamps: true,
+    }
+);
+
+
+// ============================================================
+// ÍNDICES
+//
+// Los turnos nuevos se generan en una grilla alineada a la duración del
+// médico. Bajo esa regla, dos turnos con la misma hora de inicio son
+// incompatibles y el índice único impide que dos solicitudes simultáneas
+// confirmen el mismo horario.
+//
+// El filtro parcial deja afuera los turnos cancelados para permitir
+// volver a reservar ese horario. Los documentos históricos sin `estado`
+// no participan del índice; el servicio igual los considera ocupados.
+// ============================================================
+
+turnoSchema.index(
+    { medico: 1, fechaTurno: 1 },
+    { name: 'turnos_por_medico_fecha' }
+);
+
+turnoSchema.index(
+    { medico: 1, fechaTurno: 1 },
+    {
+        name: 'turnos_activos_unicos_por_medico_fecha',
+        unique: true,
+        partialFilterExpression: {
+            $or: [
+                { estado: 'pendiente' },
+                { estado: 'atendido' },
+            ],
+        },
     }
 );
 
