@@ -230,6 +230,27 @@ test('el login rechaza un usuario persistido con rol inválido', async () => {
     );
 });
 
+test('el login rechaza una cuenta desactivada', async () => {
+    process.env.JWT_SECRET = 'secreto-de-prueba-login';
+
+    const usuarioPersistido = await crearUsuarioPersistido(
+        'recepcionista'
+    );
+
+    modelo.findOne = async () => ({
+        ...usuarioPersistido,
+        activo: false,
+    });
+
+    await assert.rejects(
+        loginUsuario({
+            email: usuarioPersistido.email,
+            password: 'secreto123',
+        }),
+        /El usuario está desactivado/
+    );
+});
+
 test('el login incluye el perfil médico asociado en el token', async () => {
     process.env.JWT_SECRET = 'secreto-de-prueba-login';
 

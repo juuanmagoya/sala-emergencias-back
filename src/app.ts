@@ -21,6 +21,7 @@ import authRoutes from './routes/auth.routes.js';
 // Módulos migrados a TypeScript
 import especialidadRoutes from './modules/especialidad/routes/especialidad.routes.js';
 import medicoRoutes from './modules/medico/routes/medico.routes.js';
+import usuarioRoutes from './modules/usuario/routes/usuario.routes.js';
 import pacientesRoutes from './modules/pacientes/routes/paciente.routes.js';
 import consultorioRoutes from './modules/consultorio/routes/consultorio.routes.js';
 import turnoRoutes from './modules/turnos/routes/turno.routes.js';
@@ -65,6 +66,8 @@ app.use(authMiddleware);
 
 // Módulos migrados
 app.use('/api/v1/medicos', medicoRoutes);
+
+app.use('/api/v1/usuarios', usuarioRoutes);
 
 app.use('/api/v1/especialidades', especialidadRoutes);
 

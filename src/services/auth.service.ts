@@ -90,6 +90,12 @@ const loginUsuario = async ({
         throw new Error('El usuario no tiene un rol válido');
     }
 
+    // La baja lógica de cuentas se refleja en el login. Los documentos
+    // heredados sin el campo se consideran activos.
+    if (usuario.activo === false) {
+        throw new Error('El usuario está desactivado');
+    }
+
     const payload: UsuarioAutenticado = {
         id: usuario._id.toString(),
         email: usuario.email,

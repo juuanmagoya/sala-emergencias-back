@@ -11,6 +11,21 @@ export const ROLES_USUARIO = [
 
 export type RolUsuario = (typeof ROLES_USUARIO)[number];
 
+// Roles que puede gestionar el CRUD administrativo de usuarios. `admin`
+// queda fuera: no se crea ni se modifica desde esos endpoints.
+export const ROLES_GESTIONABLES = [
+    'medico',
+    'recepcionista',
+] as const;
+
+export type RolGestionable = (typeof ROLES_GESTIONABLES)[number];
+
+export const esRolGestionable = (
+    valor: unknown
+): valor is RolGestionable =>
+    typeof valor === 'string' &&
+    ROLES_GESTIONABLES.some((rol) => rol === valor);
+
 // El registro público crea cuentas de recepción: es el rol de menor privilegio.
 // Nunca se asigna `admin` de forma automática.
 export const ROL_POR_DEFECTO: RolUsuario = 'recepcionista';

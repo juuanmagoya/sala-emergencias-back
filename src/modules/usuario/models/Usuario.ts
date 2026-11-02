@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 import MedicoModel from '../../medico/models/Medico';
 
@@ -35,6 +35,12 @@ const usuarioSchema = new Schema<IUsuario>(
             enum: [...ROLES_USUARIO],
             default: ROL_POR_DEFECTO,
             required: true,
+        },
+
+        // Baja lógica de la cuenta. No elimina ni desactiva el perfil médico.
+        activo: {
+            type: Boolean,
+            default: true,
         },
 
         // Referencia opcional al perfil médico. No se asume que Usuario._id y
@@ -79,6 +85,23 @@ usuarioSchema.pre('validate', function () {
             'Solo un usuario con rol médico puede tener un perfil médico asociado'
         );
     }
+});
+
+// La contraseña nunca forma parte de la representación pública del usuario.
+usuarioSchema.set('toJSON', {
+    transform: (
+        _documento: Document,
+        usuarioRetorno: Record<string, any>
+    ) => {
+        usuarioRetorno.id = usuarioRetorno._id;
+
+        // Normaliza documentos heredados que todavía no tienen el campo.
+        usuarioRetorno.activo = usuarioRetorno.activo !== false;
+
+        delete usuarioRetorno._id;
+        delete usuarioRetorno.__v;
+        delete usuarioRetorno.password;
+    },
 });
 
 export default model<IUsuario>(

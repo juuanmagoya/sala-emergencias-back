@@ -1,6 +1,6 @@
 import type { Types } from 'mongoose';
 
-import type { EstadoTurno } from '../../turnos/interfaces/Turno.interface';
+import type { EstadoTurno } from '../../turnos/types/turno.types';
 
 // ============================================================
 // INGRESO POR RECEPCIÓN (turno resultante del ingreso)
