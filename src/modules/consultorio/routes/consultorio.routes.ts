@@ -15,7 +15,7 @@ const router = Router();
 // y para el personal médico.
 router.get(
     '/',
-    autorizarRoles('admin', 'medico', 'recepcionista'),
+    autorizarRoles('admin','recepcionista'),
     getConsultorios
 );
 

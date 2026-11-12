@@ -1,6 +1,9 @@
 import type { Request } from 'express';
 
-import type { CrearTurnoDTO } from '../dtos/TurnoDTO';
+import type {
+    ActualizarEstadoTurnoDTO,
+    CrearTurnoDTO,
+} from '../dtos/TurnoDTO';
 
 // ============================================================
 // CREAR TURNO
@@ -29,4 +32,12 @@ export interface TurnoIdRequest extends Request {
     params: {
         id: string;
     };
+}
+
+// ============================================================
+// ACTUALIZAR ESTADO DEL TURNO
+// ============================================================
+
+export interface ActualizarEstadoTurnoRequest extends TurnoIdRequest {
+    body: ActualizarEstadoTurnoDTO;
 }

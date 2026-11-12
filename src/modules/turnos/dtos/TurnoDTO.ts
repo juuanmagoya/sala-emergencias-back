@@ -1,3 +1,5 @@
+import type { EstadoTurno } from '../types/turno.types';
+
 // ============================================================
 // CREAR TURNO
 //
@@ -11,4 +13,15 @@ export interface CrearTurnoDTO {
     medico: string;
     fechaTurno: string;
     observaciones?: string;
+}
+
+// ============================================================
+// ACTUALIZAR ESTADO DEL TURNO
+//
+// La operación solo admite el campo `estado`; cualquier otro campo
+// enviado en el body se rechaza.
+// ============================================================
+
+export interface ActualizarEstadoTurnoDTO {
+    estado: EstadoTurno;
 }

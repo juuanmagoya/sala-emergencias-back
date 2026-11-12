@@ -7,6 +7,7 @@ import turnoService from '../services/turno.service';
 import { responderErrorTurno } from '../utils/responderErrorTurno';
 
 import type {
+    ActualizarEstadoTurnoRequest,
     CrearTurnoRequest,
     DisponibilidadRequest,
     TurnoIdRequest,
@@ -140,6 +141,40 @@ export const createTurno = async (
             res,
             error,
             'Error interno del servidor'
+        );
+    }
+};
+
+// ============================================================
+// ACTUALIZAR ESTADO
+// ============================================================
+
+export const actualizarEstadoTurno = async (
+    req: ActualizarEstadoTurnoRequest,
+    res: Response
+) => {
+    try {
+        const { id } = req.params;
+
+        const turnoActualizado =
+            await turnoService.actualizarEstadoTurno(
+                id,
+                req.body
+            );
+
+        return respuestaEstandar(
+            res,
+            200,
+            true,
+            'Estado del turno actualizado exitosamente',
+            turnoActualizado
+        );
+
+    } catch (error: unknown) {
+        return responderErrorTurno(
+            res,
+            error,
+            'Error al actualizar el estado del turno'
         );
     }
 };

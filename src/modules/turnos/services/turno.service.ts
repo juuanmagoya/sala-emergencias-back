@@ -24,7 +24,12 @@ import {
 import { MENSAJES_TURNO } from '../constants/turno.messages';
 import { esErrorDuplicado } from '../utils/erroresTurno';
 
-import type { CrearTurnoDTO } from '../dtos/TurnoDTO';
+import { esEstadoTurno } from '../types/turno.types';
+
+import type {
+    ActualizarEstadoTurnoDTO,
+    CrearTurnoDTO,
+} from '../dtos/TurnoDTO';
 import type { ResultadoDisponibilidad } from './disponibilidad.service';
 
 const LONGITUD_MAXIMA_OBSERVACIONES = 500;
@@ -302,6 +307,67 @@ class TurnoService {
             : consultaTurno);
 
         return turnoCompleto ?? turnoCreado;
+    }
+
+    // ============================================================
+    // ACTUALIZAR ESTADO
+    // ============================================================
+
+    async actualizarEstadoTurno(
+        id: string,
+        datos: ActualizarEstadoTurnoDTO | undefined
+    ) {
+        const turnoId = validarObjectId(
+            id,
+            MENSAJES_TURNO.TURNO_ID_INVALIDO
+        );
+
+        if (
+            !datos ||
+            typeof datos !== 'object' ||
+            Array.isArray(datos)
+        ) {
+            throw new Error(MENSAJES_TURNO.ESTADO_REQUERIDO);
+        }
+
+        const camposRecibidos = Object.keys(datos);
+
+        if (
+            camposRecibidos.some((campo) => campo !== 'estado')
+        ) {
+            throw new Error(
+                MENSAJES_TURNO.SOLO_ESTADO_MODIFICABLE
+            );
+        }
+
+        const estado: unknown = datos.estado;
+
+        if (estado === undefined || estado === null || estado === '') {
+            throw new Error(MENSAJES_TURNO.ESTADO_REQUERIDO);
+        }
+
+        if (!esEstadoTurno(estado)) {
+            throw new Error(MENSAJES_TURNO.ESTADO_INVALIDO);
+        }
+
+        // Se actualiza exclusivamente `estado`: el resto del documento
+        // (paciente, médico, especialidad, fechas y observaciones)
+        // permanece intacto.
+        const turnoActualizado =
+            await TurnoModel.findByIdAndUpdate(
+                turnoId,
+                { $set: { estado } },
+                { new: true, runValidators: true }
+            )
+                .populate('paciente')
+                .populate('especialidad')
+                .populate('medico');
+
+        if (!turnoActualizado) {
+            throw new Error(MENSAJES_TURNO.TURNO_NO_ENCONTRADO);
+        }
+
+        return turnoActualizado;
     }
 
     // ============================================================

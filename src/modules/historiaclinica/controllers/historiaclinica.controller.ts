@@ -207,6 +207,7 @@ export const createHistoriaClinica = async (
     res: Response
 ) => {
     try {
+
         const historiaCompleta =
             await historiaClinicaService.createHistoriaClinica(req.body);
 

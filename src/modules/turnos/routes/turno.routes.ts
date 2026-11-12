@@ -7,6 +7,7 @@ import {
     getDisponibilidad,
     getMisTurnos,
     createTurno,
+    actualizarEstadoTurno,
     deleteTurno,
 } from '../controllers/turno.controller';
 
@@ -39,6 +40,14 @@ router.get(
 // Alta de turnos: operación de recepción/administración.
 // Ya no se usa la credencial estática `token123`: la autorización es por JWT.
 router.post('/', autorizarRoles('admin', 'recepcionista'), createTurno);
+
+// Cambio de estado del turno: lo usa el personal que gestiona la cola
+// (recepción/administración) y el médico al marcar la atención.
+router.patch(
+    '/:id/estado',
+    autorizarRoles('admin', 'medico', 'recepcionista'),
+    actualizarEstadoTurno
+);
 
 // Cancelación (borrado lógico): operación de recepción/administración.
 router.delete('/:id', autorizarRoles('admin', 'recepcionista'), deleteTurno);

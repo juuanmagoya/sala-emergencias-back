@@ -23,6 +23,7 @@ const PACIENTE_ID = '507f1f77bcf86cd799439011';
 const ESPECIALIDAD_ID = '507f1f77bcf86cd799439012';
 const MEDICO_ID = '507f1f77bcf86cd799439013';
 const USUARIO_ID = '507f1f77bcf86cd799439014';
+const TURNO_ID = '507f1f77bcf86cd799439015';
 
 const AHORA = new Date('2026-11-02T03:00:00.000Z');
 const FECHA_VALIDA = '2026-11-02T09:00';
@@ -400,6 +401,131 @@ test('la disponibilidad ofrecida puede reservarse con la misma regla', async () 
     );
 
     assert.ok(turno);
+});
+
+// ============================================================
+// ACTUALIZACIÓN DE ESTADO
+// ============================================================
+
+const prepararActualizacionEstado = (
+    turno: Record<string, unknown> | null
+) => {
+    let actualizacionConsultada:
+        | {
+              id: string;
+              cambios: Record<string, unknown>;
+              opciones: Record<string, unknown>;
+          }
+        | undefined;
+
+    const consulta = Promise.resolve(turno) as unknown as Promise<
+        Record<string, unknown> | null
+    > & {
+        populate: () => typeof consulta;
+    };
+
+    consulta.populate = () => consulta;
+
+    mock.method(
+        TurnoModel,
+        'findByIdAndUpdate',
+        (
+            id: string,
+            cambios: Record<string, unknown>,
+            opciones: Record<string, unknown>
+        ) => {
+            actualizacionConsultada = { id, cambios, opciones };
+            return consulta;
+        }
+    );
+
+    return () => actualizacionConsultada;
+};
+
+test('actualiza únicamente el campo estado del turno', async () => {
+    const turnoActualizado = {
+        _id: TURNO_ID,
+        estado: 'atendido',
+    };
+
+    const obtenerActualizacion =
+        prepararActualizacionEstado(turnoActualizado);
+
+    const resultado = await turnoService.actualizarEstadoTurno(
+        TURNO_ID,
+        { estado: 'atendido' }
+    );
+
+    const actualizacion = obtenerActualizacion();
+
+    assert.equal(resultado, turnoActualizado);
+    assert.equal(actualizacion?.id, TURNO_ID);
+    assert.deepEqual(actualizacion?.cambios, {
+        $set: { estado: 'atendido' },
+    });
+    assert.equal(actualizacion?.opciones.new, true);
+    assert.equal(actualizacion?.opciones.runValidators, true);
+});
+
+test('rechaza un ID de turno inválido', async () => {
+    await assert.rejects(
+        turnoService.actualizarEstadoTurno('no-es-un-id', {
+            estado: 'atendido',
+        }),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message === MENSAJES_TURNO.TURNO_ID_INVALIDO
+    );
+});
+
+test('exige un estado y rechaza los no permitidos', async () => {
+    await assert.rejects(
+        turnoService.actualizarEstadoTurno(
+            TURNO_ID,
+            {} as { estado: 'atendido' }
+        ),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message === MENSAJES_TURNO.ESTADO_REQUERIDO
+    );
+
+    await assert.rejects(
+        turnoService.actualizarEstadoTurno(
+            TURNO_ID,
+            { estado: 'en-espera' } as unknown as {
+                estado: 'atendido';
+            }
+        ),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message === MENSAJES_TURNO.ESTADO_INVALIDO
+    );
+});
+
+test('rechaza campos distintos de estado en el body', async () => {
+    await assert.rejects(
+        turnoService.actualizarEstadoTurno(TURNO_ID, {
+            estado: 'atendido',
+            observaciones: 'otra cosa',
+        } as unknown as { estado: 'atendido' }),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message ===
+                MENSAJES_TURNO.SOLO_ESTADO_MODIFICABLE
+    );
+});
+
+test('rechaza un turno inexistente', async () => {
+    prepararActualizacionEstado(null);
+
+    await assert.rejects(
+        turnoService.actualizarEstadoTurno(TURNO_ID, {
+            estado: 'atendido',
+        }),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message === MENSAJES_TURNO.TURNO_NO_ENCONTRADO
+    );
 });
 
 // ============================================================

@@ -3,6 +3,11 @@ export const MENSAJES_TURNO = {
     TURNO_NO_ENCONTRADO: 'Turno no encontrado',
     TURNO_NO_CREADO: 'No se pudo registrar el turno',
 
+    ESTADO_REQUERIDO: 'El estado del turno es obligatorio',
+    ESTADO_INVALIDO: 'El estado del turno no es válido',
+    SOLO_ESTADO_MODIFICABLE:
+        'Solo se puede actualizar el estado del turno',
+
     PACIENTE_ID_INVALIDO: 'El ID del paciente no es válido',
     PACIENTE_NO_EXISTE: 'El paciente indicado no existe',
 

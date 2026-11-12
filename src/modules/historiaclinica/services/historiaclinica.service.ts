@@ -347,12 +347,13 @@ class HistoriaClinicaService {
 
         const datosCreacion = this.prepararDatosCreacion(datos);
 
-        const nuevaHistoria =
-            await HistoriaClinicaModel.create(datosCreacion);
+
+        const nuevaHistoria = await HistoriaClinicaModel.create(datosCreacion);
 
         return await HistoriaClinicaModel.findById(nuevaHistoria._id)
             .populate('paciente', 'nombre dni')
             .populate('medico', 'nombre apellido matricula');
+
     }
 
     // ============================================================
