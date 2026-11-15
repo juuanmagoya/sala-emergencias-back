@@ -14,6 +14,7 @@ import {
 } from '../../../utils/fechaHora';
 
 import {
+    esHorarioDeLaGrilla,
     obtenerDisponibilidad,
     obtenerLimitesDelDiaLocal,
     obtenerMedico,
@@ -29,6 +30,7 @@ import { esEstadoTurno } from '../types/turno.types';
 import type {
     ActualizarEstadoTurnoDTO,
     CrearTurnoDTO,
+    CrearTurnoPacienteDTO,
 } from '../dtos/TurnoDTO';
 import type { ResultadoDisponibilidad } from './disponibilidad.service';
 
@@ -42,6 +44,12 @@ export interface OpcionesCreacionTurno {
     // volver a consultarlo. La respuesta se popula después del commit.
     validarPaciente?: boolean;
     poblarRespuesta?: boolean;
+    // El portal de pacientes exige que la especialidad siga activa.
+    // El flujo interno conserva el comportamiento actual.
+    validarEspecialidadActiva?: boolean;
+    // El portal de pacientes solo puede confirmar horarios que el
+    // backend haya ofrecido en la consulta de disponibilidad.
+    exigirHorarioDeGrilla?: boolean;
 }
 
 // ============================================================
@@ -83,6 +91,20 @@ const existeEspecialidad = async (
     );
 };
 
+const esEspecialidadActiva = async (
+    especialidadId: string,
+    session?: ClientSession
+): Promise<boolean> => {
+    const consulta = EspecialidadModel.exists({
+        _id: especialidadId,
+        activo: true,
+    });
+
+    return Boolean(
+        await (session ? consulta.session(session) : consulta)
+    );
+};
+
 class TurnoService {
     // ============================================================
     // OBTENER TURNOS
@@ -103,10 +125,13 @@ class TurnoService {
 
     async getDisponibilidad(
         medicoId: string,
-        fecha: string
+        fecha: string,
+        opciones: { validarEspecialidadActiva?: boolean } = {}
     ): Promise<ResultadoDisponibilidad> {
         return obtenerDisponibilidad(medicoId, fecha, {
             zonaHoraria: leerZonaHoraria(),
+            validarEspecialidadActiva:
+                opciones.validarEspecialidadActiva,
         });
     }
 
@@ -143,6 +168,36 @@ class TurnoService {
             .populate('especialidad')
             .populate('medico')
             .sort({ fechaTurno: 1 });
+    }
+
+    // ============================================================
+    // HISTORIAL DE TURNOS DEL PACIENTE AUTENTICADO
+    // ============================================================
+
+    async getHistorialDelPaciente(idPaciente: string) {
+        // El ID proviene exclusivamente del JWT; se valida igual como
+        // defensa ante un uso directo del servicio.
+        const paciente = validarObjectId(
+            idPaciente,
+            MENSAJES_TURNO.PACIENTE_ID_INVALIDO
+        );
+
+        // No se filtra por `activo` ni por `estado`: el historial incluye
+        // pendientes, atendidos, cancelados y los cancelados por baja
+        // lógica (`activo: false`). Tampoco se exige que las referencias
+        // relacionadas existan: si ya no pueden resolverse, el populate
+        // devuelve `null` y el registro se conserva.
+        //
+        // Proyección por lista blanca: no se popula `paciente` (son los
+        // datos del propio solicitante) y del médico solo se exponen
+        // datos profesionales.
+        return TurnoModel.find({ paciente })
+            .select(
+                'fechaTurno fechaFin estado observaciones especialidad medico'
+            )
+            .populate('especialidad', 'nombre')
+            .populate('medico', 'nombre apellido matricula')
+            .sort({ fechaTurno: -1 });
     }
 
     // ============================================================
@@ -202,6 +257,18 @@ class TurnoService {
             );
         }
 
+        if (
+            opciones.validarEspecialidadActiva &&
+            !(await esEspecialidadActiva(
+                especialidad,
+                opciones.session
+            ))
+        ) {
+            throw new Error(
+                MENSAJES_TURNO.ESPECIALIDAD_INACTIVA
+            );
+        }
+
         const medico = await obtenerMedico(
             medicoId,
             opciones.session
@@ -239,6 +306,26 @@ class TurnoService {
             ocupados,
             zonaHoraria
         );
+
+        // El portal de pacientes solo puede confirmar un horario que
+        // coincida exactamente con uno de los slots ofrecidos. La regla
+        // se aplica después de las validaciones comunes para conservar
+        // los mensajes existentes de día, horario y superposición.
+        if (
+            opciones.exigirHorarioDeGrilla &&
+            !esHorarioDeLaGrilla(
+                medico,
+                fechaLocal,
+                inicio,
+                ocupados,
+                zonaHoraria,
+                ahora
+            )
+        ) {
+            throw new Error(
+                MENSAJES_TURNO.HORARIO_NO_DISPONIBLE
+            );
+        }
 
         const observaciones =
             typeof datos.observaciones === 'string'
@@ -307,6 +394,69 @@ class TurnoService {
             : consultaTurno);
 
         return turnoCompleto ?? turnoCreado;
+    }
+
+    // ============================================================
+    // CREAR TURNO PARA EL PACIENTE AUTENTICADO
+    // ============================================================
+
+    async createTurnoParaPaciente(
+        idPaciente: string,
+        datos: CrearTurnoPacienteDTO
+    ) {
+        const paciente = validarObjectId(
+            idPaciente,
+            MENSAJES_TURNO.PACIENTE_ID_INVALIDO
+        );
+
+        if (
+            !datos ||
+            typeof datos !== 'object' ||
+            Array.isArray(datos)
+        ) {
+            throw new Error(MENSAJES_TURNO.DATOS_INVALIDOS);
+        }
+
+        // Se construye explícitamente el objeto permitido. Cualquier
+        // campo interno enviado por el cliente (paciente, estado,
+        // fechaFin, duracionTurno, activo) se ignora.
+        const datosDelTurno: CrearTurnoDTO = {
+            paciente,
+            especialidad: datos.especialidad,
+            medico: datos.medico,
+            fechaTurno: datos.fechaTurno,
+            observaciones: datos.observaciones,
+        };
+
+        const turnoCreado = await this.createTurno(datosDelTurno, {
+            validarEspecialidadActiva: true,
+            exigirHorarioDeGrilla: true,
+            poblarRespuesta: false,
+        });
+
+        // Proyección mínima para el portal: sin datos personales del
+        // paciente y sin datos de contacto del médico.
+        const turno = await TurnoModel.findById(turnoCreado._id)
+            .select(
+                'fechaTurno fechaFin estado observaciones especialidad medico'
+            )
+            .populate('especialidad', 'nombre')
+            .populate('medico', 'nombre apellido matricula');
+
+        if (turno) {
+            return turno;
+        }
+
+        // Si la relectura falla, se devuelve solo lo permitido.
+        return {
+            id: turnoCreado._id,
+            fechaTurno: turnoCreado.fechaTurno,
+            fechaFin: turnoCreado.fechaFin,
+            estado: turnoCreado.estado,
+            observaciones: turnoCreado.observaciones,
+            especialidad: turnoCreado.especialidad,
+            medico: turnoCreado.medico,
+        };
     }
 
     // ============================================================

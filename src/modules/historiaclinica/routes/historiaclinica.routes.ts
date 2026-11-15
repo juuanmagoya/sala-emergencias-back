@@ -5,6 +5,7 @@ import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
 import {
     getHistoriasClinicas,
     getHistorialPaciente,
+    getMiHistorial,
     getHistoriaClinicaById,
     createHistoriaClinica,
     updateHistoriaClinica,
@@ -18,6 +19,15 @@ router.get(
     '/',
     autorizarRoles('admin', 'medico'),
     getHistoriasClinicas
+);
+
+// Historial propio del paciente autenticado: solo lectura y resuelto
+// exclusivamente desde la identidad del JWT. Debe declararse antes de
+// `/:id` para que la ruta estática no sea capturada como identificador.
+router.get(
+    '/mi-historial',
+    autorizarRoles('paciente'),
+    getMiHistorial
 );
 
 router.get(

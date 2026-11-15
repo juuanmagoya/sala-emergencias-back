@@ -3,10 +3,7 @@ import { Schema, model, Document } from 'mongoose';
 import MedicoModel from '../../medico/models/Medico';
 
 import type { IUsuario } from '../interfaces/Usuario.interface';
-import {
-    ROLES_USUARIO,
-    ROL_POR_DEFECTO,
-} from '../types/usuario.types';
+import { ROLES_USUARIO } from '../types/usuario.types';
 
 const usuarioSchema = new Schema<IUsuario>(
     {
@@ -30,10 +27,12 @@ const usuarioSchema = new Schema<IUsuario>(
             minlength: 6,
         },
 
+        // El rol es obligatorio y explícito: no existe un rol por defecto.
+        // Así ninguna creación de usuario puede heredar privilegios por
+        // omisión.
         rol: {
             type: String,
             enum: [...ROLES_USUARIO],
-            default: ROL_POR_DEFECTO,
             required: true,
         },
 

@@ -5,7 +5,10 @@ import mongoose, {
 } from 'mongoose';
 
 import MedicoModel from '../../medico/models/Medico';
+import EspecialidadModel from '../../especialidad/models/Especialidad';
 import TurnoModel from '../models/Turno';
+
+import { MENSAJES_TURNO } from '../constants/turno.messages';
 
 import {
     convertirAHoraUtc,
@@ -343,6 +346,37 @@ export const validarHorarioDisponible = (
 };
 
 // ============================================================
+// HORARIO PERTENECIENTE A LA GRILLA OFRECIDA
+//
+// El flujo de pacientes solo puede confirmar un horario que el
+// backend haya ofrecido en la consulta de disponibilidad. Esta
+// función reutiliza la misma generación de grilla y la misma regla
+// de superposición, sin duplicarlas.
+// ============================================================
+
+export const esHorarioDeLaGrilla = (
+    medico: MedicoDocumento,
+    fecha: PartesFecha,
+    inicio: Date,
+    ocupados: IntervaloTurno[],
+    zonaHoraria: string,
+    ahora: Date
+): boolean =>
+    generarHorariosDelDia(medico, fecha, zonaHoraria).some(
+        (horario) =>
+            horario.inicio.getTime() === inicio.getTime() &&
+            horario.inicio.getTime() > ahora.getTime() &&
+            !ocupados.some((turno) =>
+                seSuperponen(
+                    horario.inicio,
+                    horario.fin,
+                    turno.inicio,
+                    turno.fin
+                )
+            )
+    );
+
+// ============================================================
 // DISPONIBILIDAD DE UN DÍA
 // ============================================================
 
@@ -353,6 +387,10 @@ export const obtenerDisponibilidad = async (
         zonaHoraria: string;
         ahora?: Date;
         session?: ClientSession;
+        // El portal de pacientes solo puede consultar disponibilidad de
+        // médicos cuya especialidad siga activa. El flujo interno conserva
+        // el comportamiento actual (sin esta comprobación adicional).
+        validarEspecialidadActiva?: boolean;
     }
 ): Promise<ResultadoDisponibilidad> => {
     const fecha = parsearFechaLocal(fechaTexto);
@@ -365,6 +403,19 @@ export const obtenerDisponibilidad = async (
         medicoId,
         opciones.session
     );
+
+    if (opciones.validarEspecialidadActiva) {
+        const especialidadActiva = await EspecialidadModel.exists({
+            _id: medico.especialidad,
+            activo: true,
+        });
+
+        if (!especialidadActiva) {
+            throw new Error(
+                MENSAJES_TURNO.ESPECIALIDAD_INACTIVA
+            );
+        }
+    }
 
     const { inicioDia, finDia } = obtenerLimitesDelDiaLocal(
         fecha,

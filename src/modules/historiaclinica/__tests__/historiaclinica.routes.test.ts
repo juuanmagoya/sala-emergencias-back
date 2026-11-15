@@ -20,6 +20,7 @@ test('registra las rutas del módulo de historia clínica', () => {
 
     assert.deepEqual(rutas, [
         'GET /',
+        'GET /mi-historial',
         'GET /paciente/:pacienteId',
         'GET /:id',
         'POST /',

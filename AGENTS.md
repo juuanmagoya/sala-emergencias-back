@@ -23,6 +23,11 @@ Migración gradual de JS (CommonJS) a TypeScript en curso en la rama `develop`.
   → model (Mongoose Schema + interface + `toJSON` que renombra `_id`→`id`, borra `__v`, `timestamps: true`).
 - Middlewares en orden: `cors` (origin localhost:5173) → `express.json()` → auditoría → rutas públicas de auth → `authMiddleware` (JWT Bearer) → rutas protegidas → 404.
 - Módulos ya migrados a TypeScript: `auth`, `medico`, `especialidad`, `pacientes`, `consultorio`, `turnos`, `recepcion`, `historiaclinica` (montada como `/api/v1/historias-clinicas`).
+  - `turnos` atiende al portal de pacientes con `GET /api/v1/turnos/medicos-disponibles`, `GET /api/v1/turnos/disponibilidad`
+    y `POST /api/v1/turnos/mi-turno`. El historial propio se consulta con `GET /api/v1/turnos/mi-historial` (rol `paciente`):
+    devuelve pendientes, atendidos y cancelados —incluidos los de baja lógica (`activo: false`)— ordenados por
+    `fechaTurno` descendente, sin paginación. La identidad sale siempre de `req.usuario.id`; no se acepta `paciente`
+    por parámetro. `GET /api/v1/turnos/mis-turnos` sigue siendo exclusivo del rol `medico`.
   - `recepcion` no define un modelo Mongoose propio: su service reutiliza los modelos de los módulos `pacientes` y `turnos` (el ingreso crea ambas entidades en una transacción de Mongoose).
   - `historiaclinica` registra atenciones con `paciente`, `medico`, `fechaAtencion`, `observaciones` y `recetario`.
     No tiene borrado lógico ni endpoint `DELETE` (los registros clínicos no se eliminan). El listado admite

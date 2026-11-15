@@ -2,7 +2,7 @@
 // TIPOS - Usuario
 // ============================================
 
-// Única fuente de verdad para los roles del sistema.
+// Roles de las cuentas internas del sistema.
 export const ROLES_USUARIO = [
     'admin',
     'medico',
@@ -10,6 +10,12 @@ export const ROLES_USUARIO = [
 ] as const;
 
 export type RolUsuario = (typeof ROLES_USUARIO)[number];
+
+// Los pacientes no son documentos Usuario: se autentican directamente
+// contra la colección Paciente.
+export const ROL_PACIENTE = 'paciente' as const;
+
+export type RolAutenticado = RolUsuario | typeof ROL_PACIENTE;
 
 // Roles que puede gestionar el CRUD administrativo de usuarios. `admin`
 // queda fuera: no se crea ni se modifica desde esos endpoints.
@@ -26,19 +32,36 @@ export const esRolGestionable = (
     typeof valor === 'string' &&
     ROLES_GESTIONABLES.some((rol) => rol === valor);
 
-// El registro público crea cuentas de recepción: es el rol de menor privilegio.
-// Nunca se asigna `admin` de forma automática.
-export const ROL_POR_DEFECTO: RolUsuario = 'recepcionista';
-
 export const esRolUsuario = (valor: unknown): valor is RolUsuario =>
     typeof valor === 'string' &&
     ROLES_USUARIO.some((rol) => rol === valor);
 
-// Datos del usuario autenticado: es el payload del JWT y el contenido de req.usuario.
+export const esRolAutenticado = (
+    valor: unknown
+): valor is RolAutenticado =>
+    typeof valor === 'string' &&
+    (esRolUsuario(valor) || valor === ROL_PACIENTE);
+
+// Datos del usuario interno autenticado: payload del JWT y contenido de
+// req.usuario. `tipo` distingue esta identidad de la de un paciente.
 export interface UsuarioAutenticado {
+    tipo: 'usuario';
     id: string;
     email: string;
     rol: RolUsuario;
     // Perfil médico asociado (solo presente si el usuario está vinculado).
     medico?: string;
 }
+
+// Datos del paciente autenticado. No tiene email ni contraseña: la
+// credencial es DNI + teléfono contra la ficha Paciente.
+export interface PacienteAutenticado {
+    tipo: 'paciente';
+    id: string;
+    rol: typeof ROL_PACIENTE;
+}
+
+// Identidad que authMiddleware adjunta a req.usuario.
+export type IdentidadAutenticada =
+    | UsuarioAutenticado
+    | PacienteAutenticado;

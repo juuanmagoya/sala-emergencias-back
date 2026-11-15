@@ -6,16 +6,10 @@ import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 
 import Usuario from '../models/Usuario';
-import {
-    loginUsuario,
-    registrarUsuario,
-} from '../../../services/auth.service';
+import { loginUsuario } from '../../../services/auth.service';
 import { login as loginController } from '../../../controllers/auth.controller';
 import ErrorConfiguracion from '../../../utils/ErrorConfiguracion';
-import {
-    ROL_POR_DEFECTO,
-    type RolUsuario,
-} from '../types/usuario.types';
+import type { RolUsuario } from '../types/usuario.types';
 import type { Response } from 'express';
 
 // Secreto por defecto para los tests que no evalúan la configuración.
@@ -27,16 +21,13 @@ process.env.JWT_SECRET ??= 'secreto-de-prueba-login';
 
 type ModeloSuplantado = {
     findOne: () => Promise<unknown>;
-    create: (datos: Record<string, unknown>) => Promise<unknown>;
 };
 
 const modelo = Usuario as unknown as ModeloSuplantado;
 const findOneOriginal = modelo.findOne;
-const createOriginal = modelo.create;
 
 afterEach(() => {
     modelo.findOne = findOneOriginal;
-    modelo.create = createOriginal;
 });
 
 const crearUsuarioPersistido = async (
@@ -90,73 +81,6 @@ const crearRespuestaFalsa = (): RespuestaFalsa => {
 };
 
 // ============================================================
-// REGISTRO PÚBLICO
-// ============================================================
-
-test('el registro público no permite asignarse privilegios', async () => {
-    let datosCreados: Record<string, unknown> | undefined;
-
-    modelo.findOne = async () => null;
-    modelo.create = async (datos) => {
-        datosCreados = datos;
-
-        return {
-            _id: new mongoose.Types.ObjectId(),
-            ...datos,
-        };
-    };
-
-    // Simula un cliente que intenta forzar un rol privilegiado.
-    const datosDelCliente = {
-        nombre: 'Usuario de prueba',
-        email: 'usuario@prueba.com',
-        password: 'secreto123',
-        rol: 'admin',
-    };
-
-    const usuario = await registrarUsuario(datosDelCliente);
-
-    assert.equal(datosCreados?.rol, ROL_POR_DEFECTO);
-    assert.equal(usuario.rol, ROL_POR_DEFECTO);
-});
-
-test('el registro público guarda la contraseña hasheada', async () => {
-    let datosCreados: Record<string, unknown> | undefined;
-
-    modelo.findOne = async () => null;
-    modelo.create = async (datos) => {
-        datosCreados = datos;
-
-        return {
-            _id: new mongoose.Types.ObjectId(),
-            ...datos,
-        };
-    };
-
-    await registrarUsuario({
-        nombre: 'Usuario de prueba',
-        email: 'usuario@prueba.com',
-        password: 'secreto123',
-    });
-
-    assert.notEqual(datosCreados?.password, 'secreto123');
-    assert.match(String(datosCreados?.password), /^\$2[aby]\$/);
-});
-
-test('el registro público rechaza un email ya registrado', async () => {
-    modelo.findOne = async () => ({ email: 'usuario@prueba.com' });
-
-    await assert.rejects(
-        registrarUsuario({
-            nombre: 'Usuario de prueba',
-            email: 'usuario@prueba.com',
-            password: 'secreto123',
-        }),
-        /El email ya está registrado/
-    );
-});
-
-// ============================================================
 // INICIO DE SESIÓN
 // ============================================================
 
@@ -181,6 +105,7 @@ test('el login devuelve un token con el rol real y sin la contraseña', async ()
     }
 
     assert.equal(decodificado.rol, 'medico');
+    assert.equal(decodificado.tipo, 'usuario');
     assert.equal(decodificado.email, usuarioPersistido.email);
     assert.equal(decodificado.id, usuarioPersistido._id.toString());
     assert.equal('password' in decodificado, false);

@@ -2,14 +2,18 @@ import type { Request, Response } from 'express';
 
 import respuestaEstandar from '../../../utils/respuestaEstandar';
 
+import medicoService from '../../medico/services/medico.service';
+
 import turnoService from '../services/turno.service';
 
 import { responderErrorTurno } from '../utils/responderErrorTurno';
 
 import type {
     ActualizarEstadoTurnoRequest,
+    CrearTurnoPacienteRequest,
     CrearTurnoRequest,
     DisponibilidadRequest,
+    MedicosDisponiblesRequest,
     TurnoIdRequest,
 } from '../request/Turnos.request';
 
@@ -50,7 +54,14 @@ export const getDisponibilidad = async (
         const disponibilidad =
             await turnoService.getDisponibilidad(
                 req.query.medicoId ?? '',
-                req.query.fecha ?? ''
+                req.query.fecha ?? '',
+                {
+                    // El portal de pacientes solo consulta médicos cuya
+                    // especialidad siga activa. Los roles internos
+                    // conservan el comportamiento actual.
+                    validarEspecialidadActiva:
+                        req.usuario?.rol === 'paciente',
+                }
             );
 
         return respuestaEstandar(
@@ -66,6 +77,37 @@ export const getDisponibilidad = async (
             res,
             error,
             'Error al consultar la disponibilidad'
+        );
+    }
+};
+
+// ============================================================
+// MÉDICOS DISPONIBLES POR ESPECIALIDAD (PORTAL DE PACIENTES)
+// ============================================================
+
+export const getMedicosDisponibles = async (
+    req: MedicosDisponiblesRequest,
+    res: Response
+) => {
+    try {
+        const medicos =
+            await medicoService.getMedicosDisponibles(
+                req.query.especialidad ?? ''
+            );
+
+        return respuestaEstandar(
+            res,
+            200,
+            true,
+            'Médicos disponibles obtenidos exitosamente',
+            medicos
+        );
+
+    } catch (error: unknown) {
+        return responderErrorTurno(
+            res,
+            error,
+            'Error al obtener los médicos disponibles'
         );
     }
 };
@@ -105,6 +147,100 @@ export const getMisTurnos = async (
             res,
             error,
             'Error al obtener los turnos del médico'
+        );
+    }
+};
+
+// ============================================================
+// HISTORIAL DE TURNOS DEL PACIENTE AUTENTICADO
+// ============================================================
+
+export const getMiHistorialTurnos = async (
+    req: Request,
+    res: Response
+) => {
+    // Datos personales: no deben quedar en cachés compartidas.
+    res.set('Cache-Control', 'no-store');
+
+    try {
+        const identidad = req.usuario;
+
+        // La ruta ya exige rol `paciente`; se revalida el tipo para no
+        // depender únicamente de la autorización por rol.
+        if (!identidad || identidad.tipo !== 'paciente') {
+            return respuestaEstandar(
+                res,
+                401,
+                false,
+                'No autenticado'
+            );
+        }
+
+        // El ID sale exclusivamente del JWT. No se lee `pacienteId`
+        // desde params, query ni body.
+        const turnos =
+            await turnoService.getHistorialDelPaciente(identidad.id);
+
+        return respuestaEstandar(
+            res,
+            200,
+            true,
+            'Historial de turnos obtenido exitosamente',
+            turnos
+        );
+
+    } catch (error: unknown) {
+        return responderErrorTurno(
+            res,
+            error,
+            'Error al obtener el historial de turnos'
+        );
+    }
+};
+
+// ============================================================
+// CREAR TURNO DEL PACIENTE AUTENTICADO
+// ============================================================
+
+export const createMiTurno = async (
+    req: CrearTurnoPacienteRequest,
+    res: Response
+) => {
+    try {
+        const identidad = req.usuario;
+
+        // La ruta ya exige rol `paciente`; se revalida el tipo para no
+        // depender únicamente de la autorización por rol.
+        if (!identidad || identidad.tipo !== 'paciente') {
+            return respuestaEstandar(
+                res,
+                401,
+                false,
+                'No autenticado'
+            );
+        }
+
+        // El ID del paciente sale exclusivamente del JWT. No se lee
+        // ningún `paciente` enviado por el cliente.
+        const turno =
+            await turnoService.createTurnoParaPaciente(
+                identidad.id,
+                req.body
+            );
+
+        return respuestaEstandar(
+            res,
+            201,
+            true,
+            'Turno registrado exitosamente',
+            turno
+        );
+
+    } catch (error: unknown) {
+        return responderErrorTurno(
+            res,
+            error,
+            'Error al registrar el turno'
         );
     }
 };

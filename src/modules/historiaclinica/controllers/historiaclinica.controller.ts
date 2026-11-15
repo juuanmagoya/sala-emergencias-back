@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 import respuestaEstandar from '../../../utils/respuestaEstandar';
 
@@ -142,6 +142,58 @@ export const getHistorialPaciente = async (
 
         const historial =
             await historiaClinicaService.getHistorialPaciente(pacienteId);
+
+        return respuestaEstandar(
+            res,
+            200,
+            true,
+            'Historial clínico obtenido exitosamente',
+            historial
+        );
+
+    } catch (error: any) {
+        console.error(
+            '🔴 Error al obtener el historial clínico del paciente:',
+            error
+        );
+
+        return responderError(
+            res,
+            error,
+            'Error al obtener el historial clínico del paciente'
+        );
+    }
+};
+
+// ============================================================
+// OBTENER EL HISTORIAL DEL PACIENTE AUTENTICADO
+// ============================================================
+
+export const getMiHistorial = async (
+    req: Request,
+    res: Response
+) => {
+    // El historial clínico no debe quedar en cachés compartidas.
+    res.set('Cache-Control', 'no-store');
+
+    try {
+        const identidad = req.usuario;
+
+        // La ruta ya exige rol `paciente`; se revalida el tipo para no
+        // depender únicamente de la autorización por rol.
+        if (!identidad || identidad.tipo !== 'paciente') {
+            return respuestaEstandar(
+                res,
+                401,
+                false,
+                'No autenticado'
+            );
+        }
+
+        // El ID sale exclusivamente del JWT: no se acepta `pacienteId`
+        // desde params, query ni body.
+        const historial =
+            await historiaClinicaService.getMiHistorial(identidad.id);
 
         return respuestaEstandar(
             res,

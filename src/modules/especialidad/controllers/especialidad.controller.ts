@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 
 import respuestaEstandar from '../../../utils/respuestaEstandar';
 
@@ -59,6 +59,42 @@ export const getEspecialidades = async (
             false,
             'Error al obtener las especialidades',
             error.message
+        );
+    }
+};
+
+
+// ============================================================
+// OBTENER ESPECIALIDADES DISPONIBLES PARA PACIENTES
+// ============================================================
+
+export const getEspecialidadesDisponibles = async (
+    _req: Request,
+    res: Response
+) => {
+    try {
+        const especialidades =
+            await especialidadService.getEspecialidadesDisponibles();
+
+        return respuestaEstandar(
+            res,
+            200,
+            true,
+            'Especialidades disponibles obtenidas exitosamente',
+            especialidades
+        );
+
+    } catch (error: any) {
+        console.error(
+            '🔴 Error al obtener especialidades disponibles:',
+            error
+        );
+
+        return respuestaEstandar(
+            res,
+            500,
+            false,
+            'Error al obtener las especialidades disponibles'
         );
     }
 };

@@ -4,6 +4,7 @@ import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
 
 import {
     getEspecialidades,
+    getEspecialidadesDisponibles,
     createEspecialidad,
     updateEspecialidad,
     toggleActivoEspecialidad,
@@ -11,6 +12,14 @@ import {
 } from '../controllers/especialidad.controller';
 
 const router = Router();
+
+// Catálogo del portal de pacientes: solo especialidades activas y con
+// proyección mínima. Se declara antes de las rutas con parámetros.
+router.get(
+    '/disponibles',
+    autorizarRoles('paciente'),
+    getEspecialidadesDisponibles
+);
 
 // Catálogo de especialidades: lectura para todo el personal autenticado
 // (recepción asigna turnos por especialidad).

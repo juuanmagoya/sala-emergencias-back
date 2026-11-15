@@ -1,19 +1,11 @@
 import type { Request, Response } from 'express';
 
 import {
-    registrarUsuario,
+    loginPaciente as loginPacienteService,
     loginUsuario,
 } from '../services/auth.service.js';
 import ErrorConfiguracion from '../utils/ErrorConfiguracion.js';
 import respuestaEstandar from '../utils/respuestaEstandar.js';
-
-interface RegistrarRequest extends Request {
-    body: {
-        nombre?: string;
-        email?: string;
-        password?: string;
-    };
-}
 
 interface LoginRequest extends Request {
     body: {
@@ -22,51 +14,12 @@ interface LoginRequest extends Request {
     };
 }
 
-export const registrar = async (
-    req: RegistrarRequest,
-    res: Response
-) => {
-    try {
-        // Solo se leen los campos permitidos: cualquier `rol` enviado por el
-        // cliente se descarta y el service aplica el rol por defecto.
-        const { nombre, email, password } = req.body;
-
-        if (!nombre || !email || !password) {
-            return respuestaEstandar(
-                res,
-                400,
-                false,
-                'Nombre, email y password son obligatorios'
-            );
-        }
-
-        const usuario = await registrarUsuario({
-            nombre,
-            email,
-            password,
-        });
-
-        return respuestaEstandar(
-            res,
-            201,
-            true,
-            'Usuario registrado correctamente',
-            usuario
-        );
-    } catch (error: unknown) {
-        const mensaje =
-            error instanceof Error
-                ? error.message
-                : 'Error al registrar el usuario';
-
-        return respuestaEstandar(
-            res,
-            400,
-            false,
-            mensaje
-        );
-    }
-};
+interface LoginPacienteRequest extends Request {
+    body: {
+        dni?: string;
+        telefono?: string;
+    };
+}
 
 export const login = async (
     req: LoginRequest,
@@ -123,6 +76,75 @@ export const login = async (
             401,
             false,
             mensaje
+        );
+    }
+};
+
+export const loginPaciente = async (
+    req: LoginPacienteRequest,
+    res: Response
+) => {
+    try {
+        const { dni, telefono } = req.body;
+
+        if (!dni || !telefono) {
+            return respuestaEstandar(
+                res,
+                400,
+                false,
+                'DNI y teléfono son obligatorios'
+            );
+        }
+
+        const resultado = await loginPacienteService({
+            dni,
+            telefono,
+        });
+
+        return respuestaEstandar(
+            res,
+            200,
+            true,
+            'Login de paciente exitoso',
+            resultado
+        );
+    } catch (error: unknown) {
+        if (error instanceof ErrorConfiguracion) {
+            console.error(
+                '🔴 Error de configuración al iniciar sesión de paciente'
+            );
+
+            return respuestaEstandar(
+                res,
+                500,
+                false,
+                'Error interno del servidor'
+            );
+        }
+
+        const errorConEstado = error as {
+            statusCode?: number;
+            message?: string;
+        };
+
+        if (typeof errorConEstado.statusCode === 'number') {
+            return respuestaEstandar(
+                res,
+                errorConEstado.statusCode,
+                false,
+                errorConEstado.message ??
+                    'Error al iniciar sesión de paciente'
+            );
+        }
+
+        // No se registra el error completo: podría contener datos de entrada.
+        console.error('🔴 Error al iniciar sesión de paciente');
+
+        return respuestaEstandar(
+            res,
+            500,
+            false,
+            'Error interno del servidor'
         );
     }
 };

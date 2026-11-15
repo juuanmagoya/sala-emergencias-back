@@ -120,6 +120,14 @@ turnoSchema.index(
     }
 );
 
+// Historial del paciente autenticado: la consulta filtra por `paciente`
+// y ordena por `fechaTurno` descendente. El índice cubre ambos criterios
+// y evita un recorrido completo de la colección.
+turnoSchema.index(
+    { paciente: 1, fechaTurno: -1 },
+    { name: 'turnos_por_paciente_fecha' }
+);
+
 
 // ============================================================
 // TO JSON

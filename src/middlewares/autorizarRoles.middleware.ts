@@ -1,11 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 
-import type { RolUsuario } from '../modules/usuario/types/usuario.types.js';
+import type { RolAutenticado } from '../modules/usuario/types/usuario.types.js';
 import respuestaEstandar from '../utils/respuestaEstandar.js';
 
 // Middleware reutilizable de autorización por roles.
 // Debe montarse siempre después de authMiddleware.
-const autorizarRoles = (...rolesPermitidos: RolUsuario[]) => {
+const autorizarRoles = (...rolesPermitidos: RolAutenticado[]) => {
     return (req: Request, res: Response, next: NextFunction) => {
         if (rolesPermitidos.length === 0) {
             console.error(

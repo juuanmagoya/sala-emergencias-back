@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import type {
     ActualizarEstadoTurnoDTO,
     CrearTurnoDTO,
+    CrearTurnoPacienteDTO,
 } from '../dtos/TurnoDTO';
 
 // ============================================================
@@ -11,6 +12,24 @@ import type {
 
 export interface CrearTurnoRequest extends Request {
     body: CrearTurnoDTO;
+}
+
+// ============================================================
+// CREAR TURNO DEL PACIENTE AUTENTICADO
+// ============================================================
+
+export interface CrearTurnoPacienteRequest extends Request {
+    body: CrearTurnoPacienteDTO;
+}
+
+// ============================================================
+// MÉDICOS DISPONIBLES POR ESPECIALIDAD
+// ============================================================
+
+export interface MedicosDisponiblesRequest extends Request {
+    query: {
+        especialidad?: string;
+    };
 }
 
 // ============================================================

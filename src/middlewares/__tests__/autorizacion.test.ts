@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
-import { after, test } from 'node:test';
+import { after, afterEach, test } from 'node:test';
 
 import express from 'express';
 import jwt from 'jsonwebtoken';
 
 import authMiddleware from '../auth.middleware';
 import autorizarRoles from '../autorizarRoles.middleware';
+import PacienteModel from '../../modules/pacientes/models/Paciente';
 import type { RolUsuario } from '../../modules/usuario/types/usuario.types';
 
 // ============================================================
@@ -34,6 +35,14 @@ app.get(
     '/clinico',
     authMiddleware,
     autorizarRoles('medico', 'admin'),
+    (_req, res) => res.status(200).json({ success: true })
+);
+
+// Ruta de prueba: exclusiva de pacientes autenticados.
+app.get(
+    '/solo-paciente',
+    authMiddleware,
+    autorizarRoles('paciente'),
     (_req, res) => res.status(200).json({ success: true })
 );
 
@@ -69,6 +78,49 @@ const crearToken = (
         secreto,
         { expiresIn: '1h' }
     );
+
+const crearTokenInternoConTipo = (rol: RolUsuario) =>
+    jwt.sign(
+        {
+            tipo: 'usuario',
+            id: '507f1f77bcf86cd799439011',
+            email: 'prueba@sala.com',
+            rol,
+        },
+        JWT_SECRET_PRUEBA,
+        { expiresIn: '1h' }
+    );
+
+const crearTokenPaciente = (
+    rol: string = 'paciente',
+    id: string = '507f1f77bcf86cd799439012'
+) =>
+    jwt.sign(
+        {
+            tipo: 'paciente',
+            id,
+            rol,
+        },
+        JWT_SECRET_PRUEBA,
+        { expiresIn: '1h' }
+    );
+
+type ModeloPacienteSuplantado = {
+    exists: (filtro: unknown) => Promise<unknown>;
+};
+
+const modeloPaciente = PacienteModel as unknown as ModeloPacienteSuplantado;
+const existsOriginal = modeloPaciente.exists;
+
+afterEach(() => {
+    modeloPaciente.exists = existsOriginal;
+});
+
+const habilitarPacienteExistente = () => {
+    modeloPaciente.exists = async () => ({
+        _id: '507f1f77bcf86cd799439012',
+    });
+};
 
 const solicitar = (ruta: string, token?: string) =>
     fetch(`${urlBase}${ruta}`, {
@@ -180,4 +232,87 @@ test('responde 401 si la autorización corre sin autenticación previa', async (
     );
 
     assert.equal(respuesta.status, 401);
+});
+
+// ============================================================
+// IDENTIDAD DE PACIENTE
+// ============================================================
+
+test('permite el acceso a un paciente autenticado', async () => {
+    habilitarPacienteExistente();
+
+    const respuesta = await solicitar(
+        '/solo-paciente',
+        crearTokenPaciente()
+    );
+
+    assert.equal(respuesta.status, 200);
+});
+
+test('rechaza a un paciente si el documento ya no existe', async () => {
+    modeloPaciente.exists = async () => null;
+
+    const respuesta = await solicitar(
+        '/solo-paciente',
+        crearTokenPaciente()
+    );
+
+    assert.equal(respuesta.status, 401);
+});
+
+test('rechaza a un paciente en una ruta de administración', async () => {
+    habilitarPacienteExistente();
+
+    const respuesta = await solicitar(
+        '/solo-admin',
+        crearTokenPaciente()
+    );
+
+    assert.equal(respuesta.status, 403);
+});
+
+test('rechaza a un usuario interno en una ruta de paciente', async () => {
+    const respuesta = await solicitar(
+        '/solo-paciente',
+        crearToken('admin')
+    );
+
+    assert.equal(respuesta.status, 403);
+});
+
+test('rechaza un token de paciente con un rol elevado', async () => {
+    habilitarPacienteExistente();
+
+    const respuesta = await solicitar(
+        '/solo-admin',
+        crearTokenPaciente('admin')
+    );
+
+    assert.equal(respuesta.status, 401);
+});
+
+test('rechaza un token interno que se declara paciente', async () => {
+    const token = jwt.sign(
+        {
+            tipo: 'usuario',
+            id: '507f1f77bcf86cd799439011',
+            email: 'prueba@sala.com',
+            rol: 'paciente',
+        },
+        JWT_SECRET_PRUEBA,
+        { expiresIn: '1h' }
+    );
+
+    const respuesta = await solicitar('/solo-paciente', token);
+
+    assert.equal(respuesta.status, 401);
+});
+
+test('sigue aceptando tokens internos nuevos con tipo usuario', async () => {
+    const respuesta = await solicitar(
+        '/solo-admin',
+        crearTokenInternoConTipo('admin')
+    );
+
+    assert.equal(respuesta.status, 200);
 });

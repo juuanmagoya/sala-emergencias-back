@@ -5,7 +5,10 @@ import autorizarRoles from '../../../middlewares/autorizarRoles.middleware';
 import {
     getTurnos,
     getDisponibilidad,
+    getMedicosDisponibles,
     getMisTurnos,
+    getMiHistorialTurnos,
+    createMiTurno,
     createTurno,
     actualizarEstadoTurno,
     deleteTurno,
@@ -22,11 +25,20 @@ router.get(
 );
 
 // Horarios libres de un médico para una fecha local (YYYY-MM-DD).
-// La duración siempre surge del perfil del médico.
+// La duración siempre surge del perfil del médico. El portal de pacientes
+// reutiliza exactamente la misma consulta.
 router.get(
     '/disponibilidad',
-    autorizarRoles('admin', 'medico', 'recepcionista'),
+    autorizarRoles('admin', 'medico', 'recepcionista', 'paciente'),
     getDisponibilidad
+);
+
+// Catálogo de médicos activos de una especialidad activa para el portal
+// de pacientes. La proyección excluye datos de contacto y administrativos.
+router.get(
+    '/medicos-disponibles',
+    autorizarRoles('paciente'),
+    getMedicosDisponibles
 );
 
 // Agenda del médico autenticado. El perfil se resuelve desde la relación
@@ -35,6 +47,23 @@ router.get(
     '/mis-turnos',
     autorizarRoles('medico'),
     getMisTurnos
+);
+
+// Historial completo de turnos del paciente autenticado: pendientes,
+// atendidos y cancelados. La identidad se resuelve exclusivamente desde
+// el JWT; no se acepta un paciente por parámetro.
+router.get(
+    '/mi-historial',
+    autorizarRoles('paciente'),
+    getMiHistorialTurnos
+);
+
+// Alta del turno del paciente autenticado. El paciente se resuelve
+// exclusivamente desde el JWT; el body no admite `paciente`.
+router.post(
+    '/mi-turno',
+    autorizarRoles('paciente'),
+    createMiTurno
 );
 
 // Alta de turnos: operación de recepción/administración.

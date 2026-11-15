@@ -83,3 +83,22 @@ test('existe un índice de consulta por médico y fecha', () => {
     assert.ok(indiceConsulta);
     assert.equal(indiceConsulta[1]?.unique, undefined);
 });
+
+test('existe un índice de historial por paciente y fecha', () => {
+    const indices = obtenerIndices();
+
+    const indiceHistorial = indices.find(
+        (indice) =>
+            indice[1].name === 'turnos_por_paciente_fecha'
+    );
+
+    assert.ok(indiceHistorial);
+
+    const [campos, opciones] = indiceHistorial;
+
+    assert.deepEqual(campos, {
+        paciente: 1,
+        fechaTurno: -1,
+    });
+    assert.equal(opciones.unique, undefined);
+});

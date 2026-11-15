@@ -288,10 +288,16 @@ class HistoriaClinicaService {
     }
 
     // ============================================================
-    // OBTENER HISTORIAL CLÍNICO DE UN PACIENTE
+    // CONSULTA BASE DEL HISTORIAL POR PACIENTE
     // ============================================================
 
-    async getHistorialPaciente(pacienteId: string) {
+    private construirConsultaHistorialPorPaciente(pacienteId: string) {
+        return HistoriaClinicaModel.find({ paciente: pacienteId })
+            .populate('medico', 'nombre apellido matricula')
+            .sort({ fechaAtencion: -1 });
+    }
+
+    private async validarPacienteDelHistorial(pacienteId: string) {
         this.validarObjectId(
             pacienteId,
             'El ID del paciente no es válido'
@@ -304,11 +310,31 @@ class HistoriaClinicaService {
         if (!pacienteExiste) {
             throw new Error('Paciente no encontrado');
         }
+    }
 
-        return await HistoriaClinicaModel.find({ paciente: pacienteId })
-            .populate('paciente', 'nombre dni')
-            .populate('medico', 'nombre apellido matricula')
-            .sort({ fechaAtencion: -1 });
+    // ============================================================
+    // OBTENER HISTORIAL CLÍNICO DE UN PACIENTE
+    // ============================================================
+
+    async getHistorialPaciente(pacienteId: string) {
+        await this.validarPacienteDelHistorial(pacienteId);
+
+        return await this.construirConsultaHistorialPorPaciente(pacienteId)
+            .populate('paciente', 'nombre dni');
+    }
+
+    // ============================================================
+    // OBTENER EL HISTORIAL DEL PACIENTE AUTENTICADO
+    // ============================================================
+
+    async getMiHistorial(pacienteId: string) {
+        await this.validarPacienteDelHistorial(pacienteId);
+
+        // Proyección explícita: no se popula `paciente` para no exponer
+        // DNI, teléfono ni otros datos del perfil. El médico queda limitado
+        // a los campos definidos en el populate de la consulta base.
+        return await this.construirConsultaHistorialPorPaciente(pacienteId)
+            .select('fechaAtencion observaciones recetario medico');
     }
 
     // ============================================================

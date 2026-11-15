@@ -6,7 +6,6 @@ import mongoose from 'mongoose';
 import UsuarioModel from '../models/Usuario';
 import {
     ROLES_USUARIO,
-    ROL_POR_DEFECTO,
     esRolUsuario,
 } from '../types/usuario.types';
 
@@ -55,14 +54,15 @@ test('rechaza un rol fuera del conjunto permitido', async () => {
     });
 });
 
-test('asigna recepcionista por defecto y nunca admin', async () => {
+test('exige un rol explícito y no asigna privilegios por defecto', async () => {
     const usuario = crearUsuario();
 
-    await usuario.validate();
+    await assert.rejects(usuario.validate(), (error: unknown) => {
+        assert.ok(error instanceof mongoose.Error.ValidationError);
+        assert.ok(error.errors.rol);
 
-    assert.equal(usuario.rol, ROL_POR_DEFECTO);
-    assert.equal(usuario.rol, 'recepcionista');
-    assert.notEqual(usuario.rol, 'admin');
+        return true;
+    });
 });
 
 // ============================================================

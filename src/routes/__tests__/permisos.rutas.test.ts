@@ -161,23 +161,33 @@ test('una ruta protegida rechaza un JWT inválido', async () => {
     assert.equal(respuesta.status, 401);
 });
 
-test('las rutas públicas de autenticación siguen funcionando', async () => {
+test('el login público sigue funcionando y el registro público no existe', async () => {
     const loginSinPassword = await solicitar('POST', '/api/v1/auth/login', {
         cuerpo: { email: 'prueba@sala.com' },
     });
 
-    const registroSinDatos = await solicitar(
+    const registroAnonimo = await solicitar(
         'POST',
         '/api/v1/auth/register',
         { cuerpo: {} }
     );
 
-    // Llegan al controller (400 de validación), no al middleware de auth (401).
+    const registroConAdmin = await solicitar(
+        'POST',
+        '/api/v1/auth/register',
+        { token: crearToken('admin'), cuerpo: {} }
+    );
+
+    // El login llega al controller (400 de validación), no al middleware de auth.
     assert.equal(loginSinPassword.status, 400);
-    assert.equal(registroSinDatos.status, 400);
+
+    // Sin token, el middleware global bloquea la solicitud (401).
+    // Con un token válido, la ruta inexistente responde 404.
+    // En ningún caso se crea una cuenta.
+    assert.equal(registroAnonimo.status, 401);
+    assert.equal(registroConAdmin.status, 404);
 
     verificarFormatoEstandar(await leerCuerpo(loginSinPassword));
-    verificarFormatoEstandar(await leerCuerpo(registroSinDatos));
 });
 
 // ============================================================

@@ -15,6 +15,8 @@ export const MENSAJES_TURNO = {
         'El ID de la especialidad no es válido',
     ESPECIALIDAD_NO_EXISTE:
         'La especialidad indicada no existe',
+    ESPECIALIDAD_INACTIVA:
+        'La especialidad no está activa',
 
     MEDICO_ID_INVALIDO: 'El ID del médico no es válido',
     MEDICO_NO_EXISTE: 'El médico indicado no existe',
@@ -30,6 +32,10 @@ export const MENSAJES_TURNO = {
     FUERA_DE_HORARIO:
         'El turno debe comenzar y finalizar dentro del horario de atención',
     HORARIO_OCUPADO: 'El horario solicitado ya está ocupado',
+    HORARIO_NO_DISPONIBLE:
+        'El horario solicitado no está disponible',
+
+    DATOS_INVALIDOS: 'Los datos del turno no son válidos',
 
     OBSERVACIONES_DEMASIADO_LARGAS:
         'Las observaciones no pueden superar los 500 caracteres',

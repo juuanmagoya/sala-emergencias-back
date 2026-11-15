@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 import MedicoModel from '../models/Medico';
+import EspecialidadModel from '../../especialidad/models/Especialidad';
 
 import type { CreateMedicoDTO } from '../dtos/CreateMedicoDTO';
 import type { UpdateMedicoDTO } from '../dtos/UpdateMedicoDTO';
@@ -72,6 +73,54 @@ class MedicoService {
         return await MedicoModel.find(filtroMongo)
             .populate('especialidad')
             .populate('consultorios');
+    }
+
+
+    // ============================================================
+    // MÉDICOS DISPONIBLES PARA EL PORTAL DE PACIENTES
+    //
+    // Solo médicos activos de una especialidad activa. La proyección
+    // excluye email, teléfono, consultorios y horarios completos.
+    // ============================================================
+
+    async getMedicosDisponibles(especialidadId: string) {
+        if (
+            !mongoose.Types.ObjectId.isValid(especialidadId)
+        ) {
+            throw new Error(
+                'El ID de la especialidad no es válido'
+            );
+        }
+
+        const especialidadActiva =
+            await EspecialidadModel.findOne({
+                _id: especialidadId,
+                activo: true,
+            }).select('_id');
+
+        if (!especialidadActiva) {
+            const especialidadExiste =
+                await EspecialidadModel.exists({
+                    _id: especialidadId,
+                });
+
+            if (!especialidadExiste) {
+                throw new Error(
+                    'La especialidad indicada no existe'
+                );
+            }
+
+            throw new Error('La especialidad no está activa');
+        }
+
+        return await MedicoModel.find({
+            especialidad: especialidadId,
+            activo: true,
+        })
+            .select(
+                'nombre apellido matricula especialidad duracionTurno'
+            )
+            .populate('especialidad', 'nombre');
     }
 
 

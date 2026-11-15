@@ -52,6 +52,19 @@ class EspecialidadService {
         return especialidades;
     }
 
+    // ============================================================
+    // ESPECIALIDADES DISPONIBLES PARA EL PORTAL DE PACIENTES
+    //
+    // El filtro por `activo: true` se aplica siempre en el servidor.
+    // La proyección excluye campos administrativos.
+    // ============================================================
+
+    async getEspecialidadesDisponibles() {
+        return await EspecialidadModel.find({ activo: true })
+            .select('nombre descripcion codigo')
+            .sort({ nombre: 1 });
+    }
+
     async createEspecialidad(
         datos: CreateEspecialidadDTO
     ) {

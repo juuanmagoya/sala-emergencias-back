@@ -16,6 +16,20 @@ export interface CrearTurnoDTO {
 }
 
 // ============================================================
+// CREAR TURNO DEL PACIENTE AUTENTICADO
+//
+// No incluye `paciente`: la identidad se obtiene exclusivamente
+// del JWT y el servicio la inyecta de forma explícita.
+// ============================================================
+
+export interface CrearTurnoPacienteDTO {
+    especialidad: string;
+    medico: string;
+    fechaTurno: string;
+    observaciones?: string;
+}
+
+// ============================================================
 // ACTUALIZAR ESTADO DEL TURNO
 //
 // La operación solo admite el campo `estado`; cualquier otro campo
