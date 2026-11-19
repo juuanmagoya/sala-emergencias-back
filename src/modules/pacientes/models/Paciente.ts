@@ -95,14 +95,17 @@ const pacienteSchema = new Schema<IPacienteDocument>(
       unique: true,
       match: [/^[0-9]{7,8}$/, 'El DNI debe tener 8 dígitos'],
     },
+    // Opcional para el alta mínima de Recepción. Si se envía, sus
+    // subcampos obligatorios siguen validándose.
     direccion: {
       type: direccionSchema,
-      required: true,
     },
+    // Opcional para el alta mínima de Recepción. La unicidad se define
+    // en un índice parcial para permitir varios pacientes sin email.
     email: {
       type: String,
-      required: [true, 'El correo electrónico del paciente es obligatorio'],
-      unique: true,
+      trim: true,
+      lowercase: true,
       match: [
         /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
         'El correo electrónico no es válido',
@@ -115,9 +118,27 @@ const pacienteSchema = new Schema<IPacienteDocument>(
     obraSocial: {
       type: obraSocialSchema,
       required: true,
+      default: () => ({ nombre: 'NINGUNA' }),
     },
   },
   { timestamps: true }
+);
+
+// ============================================
+// ÍNDICES
+// ============================================
+
+// El email solo es único cuando existe y es un string. Un índice simple
+// unique bloquearía a todos los pacientes sin email (o con email: null).
+// Importante: este índice no reemplaza automáticamente al índice previo
+// `email_1` en bases ya creadas. Ver la migración manual documentada.
+pacienteSchema.index(
+  { email: 1 },
+  {
+    name: 'pacientes_email_unico',
+    unique: true,
+    partialFilterExpression: { email: { $type: 'string' } },
+  }
 );
 
 // ============================================

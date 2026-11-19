@@ -67,7 +67,7 @@ const crearMedico = (
         nombre: 'ANA',
         apellido: 'PEREZ',
         matricula: '123456',
-        especialidad: new mongoose.Types.ObjectId(ESPECIALIDAD_ID),
+        especialidades: [new mongoose.Types.ObjectId(ESPECIALIDAD_ID)],
         duracionTurno: 30,
         activo: true,
         horariosAtencion: [
@@ -475,7 +475,7 @@ test('createTurnoParaPaciente rechaza un médico inactivo', async () => {
 test('createTurnoParaPaciente rechaza una especialidad que no corresponde al médico', async () => {
     prepararDependencias(
         crearMedico({
-            especialidad: new mongoose.Types.ObjectId(),
+            especialidades: [new mongoose.Types.ObjectId()],
         })
     );
     prepararCreacion();
@@ -738,10 +738,12 @@ test('getMedicosDisponibles filtra por especialidad y activo con proyección seg
             apellido: 'PEREZ',
             matricula: '123456',
             duracionTurno: 30,
-            especialidad: {
-                id: ESPECIALIDAD_ID,
-                nombre: 'CARDIOLOGIA',
-            },
+            especialidades: [
+                {
+                    id: ESPECIALIDAD_ID,
+                    nombre: 'CARDIOLOGIA',
+                },
+            ],
         },
     ];
 
@@ -763,15 +765,15 @@ test('getMedicosDisponibles filtra por especialidad y activo con proyección seg
         );
 
     assert.deepEqual(consultaRegistro.filtro, {
-        especialidad: ESPECIALIDAD_ID,
+        especialidades: ESPECIALIDAD_ID,
         activo: true,
     });
     assert.equal(
         consultaRegistro.seleccion,
-        'nombre apellido matricula especialidad duracionTurno'
+        'nombre apellido matricula especialidades duracionTurno'
     );
     assert.deepEqual(consultaRegistro.populates, [
-        { ruta: 'especialidad', campos: 'nombre' },
+        { ruta: 'especialidades', campos: 'nombre' },
     ]);
     assert.equal(resultado, medicosSimulados);
 });
@@ -1035,10 +1037,12 @@ test('GET /turnos/medicos-disponibles devuelve solo campos públicos al paciente
             apellido: 'PEREZ',
             matricula: '123456',
             duracionTurno: 30,
-            especialidad: {
-                id: ESPECIALIDAD_ID,
-                nombre: 'CARDIOLOGIA',
-            },
+            especialidades: [
+                {
+                    id: ESPECIALIDAD_ID,
+                    nombre: 'CARDIOLOGIA',
+                },
+            ],
         },
     ];
 
@@ -1060,7 +1064,7 @@ test('GET /turnos/medicos-disponibles devuelve solo campos públicos al paciente
         [
             'apellido',
             'duracionTurno',
-            'especialidad',
+            'especialidades',
             'id',
             'matricula',
             'nombre',

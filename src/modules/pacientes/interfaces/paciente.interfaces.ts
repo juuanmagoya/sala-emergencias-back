@@ -34,8 +34,10 @@ export interface IObraSocial {
 export interface IPaciente {
   nombre: string;
   dni: string;
-  direccion: IDireccion;
-  email: string;
+  // Opcionales para el alta mínima desde Recepción. Los pacientes
+  // históricos conservan sus datos sin migraciones masivas.
+  direccion?: IDireccion;
+  email?: string;
   telefono: ITelefono;
   obraSocial: IObraSocial;
   createdAt?: Date;

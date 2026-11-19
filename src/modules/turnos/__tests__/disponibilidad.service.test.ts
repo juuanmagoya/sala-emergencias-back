@@ -4,6 +4,7 @@ import { afterEach, test, mock } from 'node:test';
 import mongoose from 'mongoose';
 
 import MedicoModel from '../../medico/models/Medico';
+import EspecialidadModel from '../../especialidad/models/Especialidad';
 import TurnoModel from '../models/Turno';
 
 import {
@@ -32,9 +33,9 @@ const crearMedico = (
         nombre: 'ANA',
         apellido: 'PEREZ',
         matricula: '123456',
-        especialidad: new mongoose.Types.ObjectId(
-            ESPECIALIDAD_ID
-        ),
+        especialidades: [
+            new mongoose.Types.ObjectId(ESPECIALIDAD_ID),
+        ],
         email: 'ana@example.com',
         telefono: {
             tipo: 'CELULAR',
@@ -306,6 +307,186 @@ test('no ofrece horarios de una fecha ya pasada', async () => {
     );
 
     assert.deepEqual(resultado.horarios, []);
+});
+
+// ============================================================
+// ESPECIALIDAD CONSULTADA
+// ============================================================
+
+const SEGUNDA_ESPECIALIDAD_ID =
+    '507f1f77bcf86cd799439099';
+
+test('la disponibilidad es la misma para cada especialidad asignada', async () => {
+    const primera = new mongoose.Types.ObjectId(
+        ESPECIALIDAD_ID
+    );
+    const segunda = new mongoose.Types.ObjectId(
+        SEGUNDA_ESPECIALIDAD_ID
+    );
+
+    mock.method(
+        MedicoModel,
+        'findById',
+        async () => crearMedico({ especialidades: [primera, segunda] })
+    );
+    mock.method(TurnoModel, 'find', async () => []);
+
+    const consultadas: unknown[] = [];
+
+    mock.method(
+        EspecialidadModel,
+        'exists',
+        async (filtro: any) => {
+            consultadas.push(filtro._id);
+            return { _id: filtro._id };
+        }
+    );
+
+    for (const especialidad of [primera, segunda]) {
+        const resultado = await obtenerDisponibilidad(
+            MEDICO_ID,
+            '2026-11-02',
+            {
+                zonaHoraria: ZONA,
+                ahora: new Date('2026-11-02T03:00:00.000Z'),
+                especialidadId: especialidad.toString(),
+                validarEspecialidadActiva: true,
+            }
+        );
+
+        // La grilla depende del médico, no de la especialidad.
+        assert.equal(resultado.horarios.length, 16);
+        assert.equal(resultado.duracionTurno, 30);
+    }
+
+    assert.deepEqual(
+        consultadas.map(String),
+        [primera.toString(), segunda.toString()]
+    );
+});
+
+test('rechaza una especialidad que el médico no tiene asignada', async () => {
+    mock.method(
+        MedicoModel,
+        'findById',
+        async () => crearMedico()
+    );
+
+    await assert.rejects(
+        obtenerDisponibilidad(MEDICO_ID, '2026-11-02', {
+            zonaHoraria: ZONA,
+            especialidadId: SEGUNDA_ESPECIALIDAD_ID,
+            validarEspecialidadActiva: true,
+        }),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message ===
+                MENSAJES_TURNO.ESPECIALIDAD_NO_CORRESPONDE
+    );
+});
+
+test('rechaza la especialidad asignada pero inactiva', async () => {
+    mock.method(
+        MedicoModel,
+        'findById',
+        async () => crearMedico()
+    );
+    mock.method(
+        EspecialidadModel,
+        'exists',
+        async () => null
+    );
+
+    await assert.rejects(
+        obtenerDisponibilidad(MEDICO_ID, '2026-11-02', {
+            zonaHoraria: ZONA,
+            especialidadId: ESPECIALIDAD_ID,
+            validarEspecialidadActiva: true,
+        }),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message ===
+                MENSAJES_TURNO.ESPECIALIDAD_INACTIVA
+    );
+});
+
+test('rechaza un ID de especialidad consultada inválido', async () => {
+    mock.method(
+        MedicoModel,
+        'findById',
+        async () => crearMedico()
+    );
+
+    await assert.rejects(
+        obtenerDisponibilidad(MEDICO_ID, '2026-11-02', {
+            zonaHoraria: ZONA,
+            especialidadId: 'no-es-id',
+        }),
+        (error: unknown) =>
+            error instanceof Error &&
+            error.message ===
+                MENSAJES_TURNO.ESPECIALIDAD_ID_INVALIDO
+    );
+});
+
+test('un turno de otra especialidad del mismo médico también bloquea el horario', async () => {
+    const primera = new mongoose.Types.ObjectId(
+        ESPECIALIDAD_ID
+    );
+    const segunda = new mongoose.Types.ObjectId(
+        SEGUNDA_ESPECIALIDAD_ID
+    );
+
+    let filtroTurnos: Record<string, unknown> | undefined;
+
+    mock.method(
+        MedicoModel,
+        'findById',
+        async () => crearMedico({ especialidades: [primera, segunda] })
+    );
+    mock.method(
+        TurnoModel,
+        'find',
+        async (filtro: Record<string, unknown>) => {
+            filtroTurnos = filtro;
+
+            return [
+                {
+                    fechaTurno: fechaLocal('09:00'),
+                    fechaFin: fechaLocal('09:30'),
+                },
+            ];
+        }
+    );
+    mock.method(
+        EspecialidadModel,
+        'exists',
+        async () => ({ _id: segunda })
+    );
+
+    const resultado = await obtenerDisponibilidad(
+        MEDICO_ID,
+        '2026-11-02',
+        {
+            zonaHoraria: ZONA,
+            ahora: new Date('2026-11-02T03:00:00.000Z'),
+            especialidadId: segunda.toString(),
+            validarEspecialidadActiva: true,
+        }
+    );
+
+    // La ocupación se evalúa por médico, sin filtrar por especialidad.
+    assert.equal(
+        filtroTurnos !== undefined &&
+            'especialidad' in filtroTurnos,
+        false
+    );
+    assert.equal(
+        resultado.horarios.some(
+            (horario) => horario.horaLocal === '09:00'
+        ),
+        false
+    );
 });
 
 // ============================================================

@@ -157,8 +157,9 @@ class EspecialidadService {
         // Si está activa, verificamos que no esté siendo utilizada
         // antes de desactivarla.
         if (especialidad.activo) {
+            // Se detecta el uso en cualquier posición del array.
             const medicoUsando = await MedicoModel.findOne({
-                especialidad: id,
+                especialidades: id,
                 activo: true,
             });
 
@@ -215,7 +216,7 @@ class EspecialidadService {
         }
 
         const medicoUsando = await MedicoModel.findOne({
-            especialidad: id,
+            especialidades: id,
             activo: true,
         });
 

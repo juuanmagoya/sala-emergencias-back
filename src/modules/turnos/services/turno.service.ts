@@ -23,7 +23,7 @@ import {
 } from './disponibilidad.service';
 
 import { MENSAJES_TURNO } from '../constants/turno.messages';
-import { esErrorDuplicado } from '../utils/erroresTurno';
+import { esDuplicadoDeTurno } from '../utils/erroresTurno';
 
 import { esEstadoTurno } from '../types/turno.types';
 
@@ -126,12 +126,16 @@ class TurnoService {
     async getDisponibilidad(
         medicoId: string,
         fecha: string,
-        opciones: { validarEspecialidadActiva?: boolean } = {}
+        opciones: {
+            validarEspecialidadActiva?: boolean;
+            especialidadId?: string;
+        } = {}
     ): Promise<ResultadoDisponibilidad> {
         return obtenerDisponibilidad(medicoId, fecha, {
             zonaHoraria: leerZonaHoraria(),
             validarEspecialidadActiva:
                 opciones.validarEspecialidadActiva,
+            especialidadId: opciones.especialidadId,
         });
     }
 
@@ -275,7 +279,10 @@ class TurnoService {
         );
 
         if (
-            String(medico.especialidad) !== String(especialidad)
+            !(medico.especialidades ?? []).some(
+                (asignada) =>
+                    String(asignada) === String(especialidad)
+            )
         ) {
             throw new Error(
                 MENSAJES_TURNO.ESPECIALIDAD_NO_CORRESPONDE
@@ -364,8 +371,10 @@ class TurnoService {
                 : await TurnoModel.create(datosDelTurno);
         } catch (error) {
             // El índice único de la base impide confirmar dos reservas
-            // simultáneas sobre el mismo horario.
-            if (esErrorDuplicado(error)) {
+            // simultáneas sobre el mismo horario. Solo se traduce un
+            // duplicado del índice medico+fechaTurno; otros 11000 se
+            // propagan para no ocultar errores de la base.
+            if (esDuplicadoDeTurno(error)) {
                 throw new Error(
                     MENSAJES_TURNO.HORARIO_OCUPADO
                 );

@@ -387,6 +387,9 @@ export const obtenerDisponibilidad = async (
         zonaHoraria: string;
         ahora?: Date;
         session?: ClientSession;
+        // Especialidad concreta consultada. Si se indica, el médico
+        // debe tenerla asignada y (en el portal) activa.
+        especialidadId?: string;
         // El portal de pacientes solo puede consultar disponibilidad de
         // médicos cuya especialidad siga activa. El flujo interno conserva
         // el comportamiento actual (sin esta comprobación adicional).
@@ -404,9 +407,40 @@ export const obtenerDisponibilidad = async (
         opciones.session
     );
 
+    // Pertenencia: la especialidad consultada puede estar en cualquier
+    // posición del array, no solo en la primera.
+    if (opciones.especialidadId !== undefined) {
+        if (
+            !mongoose.Types.ObjectId.isValid(
+                opciones.especialidadId
+            )
+        ) {
+            throw new Error(
+                MENSAJES_TURNO.ESPECIALIDAD_ID_INVALIDO
+            );
+        }
+
+        const asignada = (medico.especialidades ?? []).some(
+            (especialidad) =>
+                String(especialidad) ===
+                String(opciones.especialidadId)
+        );
+
+        if (!asignada) {
+            throw new Error(
+                MENSAJES_TURNO.ESPECIALIDAD_NO_CORRESPONDE
+            );
+        }
+    }
+
     if (opciones.validarEspecialidadActiva) {
+        // Se valida exactamente la especialidad consultada. Sin
+        // especialidad indicada se conserva la regla anterior: al
+        // menos una de las asignadas debe estar activa.
         const especialidadActiva = await EspecialidadModel.exists({
-            _id: medico.especialidad,
+            _id: opciones.especialidadId ?? {
+                $in: medico.especialidades ?? [],
+            },
             activo: true,
         });
 

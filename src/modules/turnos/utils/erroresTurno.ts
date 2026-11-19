@@ -62,9 +62,57 @@ export const estadoHttpParaErrorTurno = (
     return null;
 };
 
-// Error de índice único de MongoDB (reserva simultánea del mismo horario).
-export const esErrorDuplicado = (error: unknown): boolean =>
+export interface ErrorDuplicadoMongo {
+    code: number;
+    keyPattern?: Record<string, unknown>;
+    keyValue?: Record<string, unknown>;
+}
+
+export const esErrorDuplicado = (
+    error: unknown
+): error is ErrorDuplicadoMongo =>
     typeof error === 'object' &&
     error !== null &&
     'code' in error &&
     (error as { code?: unknown }).code === 11000;
+
+// Obtiene los campos que MongoDB informó como duplicados. Se consultan
+// tanto `keyPattern` como `keyValue` para no depender de que el driver
+// incluya siempre ambas propiedades.
+export const obtenerCamposDuplicados = (
+    error: unknown
+): string[] => {
+    if (!esErrorDuplicado(error)) {
+        return [];
+    }
+
+    const campos = new Set<string>();
+
+    for (const fuente of [error.keyPattern, error.keyValue]) {
+        if (
+            typeof fuente === 'object' &&
+            fuente !== null &&
+            !Array.isArray(fuente)
+        ) {
+            Object.keys(fuente).forEach((campo) => {
+                campos.add(campo);
+            });
+        }
+    }
+
+    return [...campos];
+};
+
+export const esDuplicadoDeCampo = (
+    error: unknown,
+    campo: string
+): boolean => obtenerCamposDuplicados(error).includes(campo);
+
+export const esDuplicadoDeTurno = (error: unknown): boolean => {
+    const campos = obtenerCamposDuplicados(error);
+
+    return (
+        campos.includes('medico') &&
+        campos.includes('fechaTurno')
+    );
+};

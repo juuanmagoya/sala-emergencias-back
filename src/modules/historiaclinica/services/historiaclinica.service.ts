@@ -351,7 +351,7 @@ class HistoriaClinicaService {
             .populate('paciente', 'nombre dni email telefono')
             .populate(
                 'medico',
-                'nombre apellido matricula especialidad'
+                'nombre apellido matricula especialidades'
             );
 
         if (!historia) {

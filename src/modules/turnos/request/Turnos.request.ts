@@ -40,6 +40,7 @@ export interface DisponibilidadRequest extends Request {
     query: {
         medicoId?: string;
         fecha?: string;
+        especialidad?: string;
     };
 }
 

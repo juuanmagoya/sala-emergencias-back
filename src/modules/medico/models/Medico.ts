@@ -1,5 +1,7 @@
 import { Schema, model, Document } from 'mongoose';
 
+import type { Types } from 'mongoose';
+
 import type { IMedico } from '../interfaces/Medico.interface';
 
 
@@ -33,10 +35,35 @@ const medicoSchema = new Schema<IMedico>(
             ],
         },
 
-        especialidad: {
-            type: Schema.Types.ObjectId,
-            ref: 'Especialidad',
-            required: [true, 'La especialidad es obligatoria'],
+        // Única fuente de verdad de la relación con Especialidad.
+        // `default: undefined` evita que un documento sin el campo se
+        // complete con `[]`; el service exige al menos una en altas y
+        // ediciones.
+        especialidades: {
+            type: [
+                {
+                    type: Schema.Types.ObjectId,
+                    ref: 'Especialidad',
+                },
+            ],
+            default: undefined,
+            validate: [
+                {
+                    // Los validadores no se ejecutan sobre `undefined`.
+                    // El service garantiza la presencia en altas y
+                    // ediciones; esta validación cubre arrays presentes.
+                    validator: (valor: Types.ObjectId[]) =>
+                        valor.length > 0,
+                    message:
+                        'El médico debe tener al menos una especialidad',
+                },
+                {
+                    validator: (valor: Types.ObjectId[]) =>
+                        new Set(valor.map(String)).size ===
+                        valor.length,
+                    message: 'No se puede repetir la misma especialidad',
+                },
+            ],
         },
 
         email: {
@@ -173,7 +200,7 @@ const medicoSchema = new Schema<IMedico>(
 // ÍNDICES
 // ============================================================
 
-medicoSchema.index({ especialidad: 1 });
+medicoSchema.index({ especialidades: 1 });
 
 medicoSchema.index({
     apellido: 1,
@@ -191,6 +218,10 @@ medicoSchema.set('toJSON', {
         medicoRetorno: Record<string, any>
     ) => {
         medicoRetorno.id = medicoRetorno._id;
+
+        // `especialidad` fue eliminado del modelo: la relación con
+        // Especialidad se expone únicamente como `especialidades`.
+        delete medicoRetorno.especialidad;
 
         delete medicoRetorno._id;
         delete medicoRetorno.__v;

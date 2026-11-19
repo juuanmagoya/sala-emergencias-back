@@ -1,4 +1,4 @@
-import type { CreatePacienteDTO } from '../../pacientes/dtos/CreatePacienteDTO';
+import type { CrearPacienteRecepcionDTO } from './CrearPacienteRecepcionDTO';
 
 // ============================================================
 // REGISTRAR INGRESO
@@ -7,7 +7,7 @@ import type { CreatePacienteDTO } from '../../pacientes/dtos/CreatePacienteDTO';
 // ============================================================
 
 export interface CrearIngresoDTO {
-    datosPaciente: CreatePacienteDTO;
+    datosPaciente: CrearPacienteRecepcionDTO;
     especialidad: string;
     medico: string;
     fechaTurno: string;

@@ -20,8 +20,9 @@ const PATRON_EMAIL =
     /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 // Solo se devuelven los datos públicos del perfil médico asociado.
+// `especialidades` es la única fuente de verdad de la relación.
 const CAMPOS_MEDICO_PUBLICOS =
-    'nombre apellido matricula email especialidad activo';
+    'nombre apellido matricula email especialidades activo';
 
 // ============================================================
 // ERRORES DE NEGOCIO

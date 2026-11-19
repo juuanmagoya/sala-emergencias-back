@@ -6,6 +6,94 @@ import EspecialidadModel from '../../especialidad/models/Especialidad';
 import type { CreateMedicoDTO } from '../dtos/CreateMedicoDTO';
 import type { UpdateMedicoDTO } from '../dtos/UpdateMedicoDTO';
 
+// ============================================================
+// ERRORES DE NEGOCIO
+// ============================================================
+
+interface ErrorConEstado extends Error {
+    statusCode?: number;
+}
+
+const crearError = (
+    mensaje: string,
+    statusCode = 400
+): ErrorConEstado =>
+    Object.assign(new Error(mensaje), { statusCode });
+
+// ============================================================
+// ESPECIALIDADES DEL MÉDICO
+//
+// `especialidades` es la única fuente de verdad. Se valida formato,
+// ausencia de duplicados y vigencia de cada referencia.
+// ============================================================
+
+const validarEspecialidades = async (
+    especialidades: unknown
+): Promise<string[]> => {
+
+    if (
+        !Array.isArray(especialidades) ||
+        especialidades.length === 0
+    ) {
+        throw crearError(
+            'El médico debe tener al menos una especialidad'
+        );
+    }
+
+    const ids: string[] = [];
+
+    for (const valor of especialidades) {
+        if (
+            typeof valor !== 'string' ||
+            !mongoose.Types.ObjectId.isValid(valor)
+        ) {
+            throw crearError(
+                'El ID de una de las especialidades no es válido'
+            );
+        }
+
+        if (ids.includes(valor)) {
+            throw crearError(
+                'No se puede repetir la misma especialidad'
+            );
+        }
+
+        ids.push(valor);
+    }
+
+    const encontradas = await EspecialidadModel.find({
+        _id: { $in: ids },
+    }).select('_id activo');
+
+    const existentes = new Set(
+        encontradas.map((especialidad) =>
+            String(especialidad._id)
+        )
+    );
+
+    const inactivas = new Set(
+        encontradas
+            .filter((especialidad) => !especialidad.activo)
+            .map((especialidad) => String(especialidad._id))
+    );
+
+    for (const id of ids) {
+        if (!existentes.has(id)) {
+            throw crearError(
+                'Una de las especialidades indicadas no existe'
+            );
+        }
+
+        if (inactivas.has(id)) {
+            throw crearError(
+                'Una de las especialidades indicadas no está activa'
+            );
+        }
+    }
+
+    return ids;
+};
+
 class MedicoService {
 
     // ============================================================
@@ -56,7 +144,9 @@ class MedicoService {
                 );
             }
 
-            filtroMongo.especialidad = especialidad;
+            // Coincidencia por pertenencia: Mongo evalúa cada
+            // elemento del array multikey.
+            filtroMongo.especialidades = especialidad;
         }
 
         if (email) {
@@ -71,7 +161,7 @@ class MedicoService {
         }
 
         return await MedicoModel.find(filtroMongo)
-            .populate('especialidad')
+            .populate('especialidades')
             .populate('consultorios');
     }
 
@@ -113,14 +203,16 @@ class MedicoService {
             throw new Error('La especialidad no está activa');
         }
 
+        // Coincidencia por pertenencia: cualquier especialidad del
+        // array, no solo la primera.
         return await MedicoModel.find({
-            especialidad: especialidadId,
+            especialidades: especialidadId,
             activo: true,
         })
             .select(
-                'nombre apellido matricula especialidad duracionTurno'
+                'nombre apellido matricula especialidades duracionTurno'
             )
-            .populate('especialidad', 'nombre');
+            .populate('especialidades', 'nombre');
     }
 
 
@@ -130,15 +222,9 @@ class MedicoService {
 
     async createMedico(datos: CreateMedicoDTO) {
 
-        if (
-            !mongoose.Types.ObjectId.isValid(
-                datos.especialidad
-            )
-        ) {
-            throw new Error(
-                'El ID de la especialidad no es válido'
-            );
-        }
+        const especialidades = await validarEspecialidades(
+            datos.especialidades
+        );
 
         if (datos.consultorios) {
             for (const consultorioId of datos.consultorios) {
@@ -154,7 +240,10 @@ class MedicoService {
             }
         }
 
-        return await MedicoModel.create(datos);
+        return await MedicoModel.create({
+            ...datos,
+            especialidades,
+        });
     }
 
 
@@ -181,16 +270,10 @@ class MedicoService {
             );
         }
 
-        if (datos.especialidad) {
-            if (
-                !mongoose.Types.ObjectId.isValid(
-                    datos.especialidad
-                )
-            ) {
-                throw new Error(
-                    'El ID de la especialidad no es válido'
-                );
-            }
+        if (datos.especialidades !== undefined) {
+            datos.especialidades = await validarEspecialidades(
+                datos.especialidades
+            );
         }
 
         if (datos.consultorios) {

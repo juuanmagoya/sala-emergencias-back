@@ -2,7 +2,7 @@ export interface UpdateMedicoDTO {
     nombre?: string;
     apellido?: string;
     matricula?: string;
-    especialidad?: string;
+    especialidades?: string[];
     email?: string;
 
     telefono?: {

@@ -23,7 +23,10 @@ export interface IMedico {
     nombre: string;
     apellido: string;
     matricula: string;
-    especialidad: Types.ObjectId;
+
+    // Única fuente de verdad de la relación con Especialidad.
+    especialidades: Types.ObjectId[];
+
     email: string;
     telefono: ITelefonoMedico;
     consultorios: Types.ObjectId[];

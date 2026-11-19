@@ -61,6 +61,12 @@ export const getDisponibilidad = async (
                     // conservan el comportamiento actual.
                     validarEspecialidadActiva:
                         req.usuario?.rol === 'paciente',
+                    ...(req.query.especialidad
+                        ? {
+                              especialidadId:
+                                  req.query.especialidad,
+                          }
+                        : {}),
                 }
             );
 

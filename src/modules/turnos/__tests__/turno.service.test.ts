@@ -36,9 +36,9 @@ const crearMedico = (
         nombre: 'ANA',
         apellido: 'PEREZ',
         matricula: '123456',
-        especialidad: new mongoose.Types.ObjectId(
-            ESPECIALIDAD_ID
-        ),
+        especialidades: [
+            new mongoose.Types.ObjectId(ESPECIALIDAD_ID),
+        ],
         email: 'ana@example.com',
         telefono: {
             tipo: 'CELULAR',
@@ -207,7 +207,7 @@ test('rechaza un médico inactivo', async () => {
 test('rechaza una especialidad que no corresponde al médico', async () => {
     prepararDependencias(
         crearMedico({
-            especialidad: new mongoose.Types.ObjectId(),
+            especialidades: [new mongoose.Types.ObjectId()],
         })
     );
 
@@ -220,6 +220,36 @@ test('rechaza una especialidad que no corresponde al médico', async () => {
             error instanceof Error &&
             error.message ===
                 MENSAJES_TURNO.ESPECIALIDAD_NO_CORRESPONDE
+    );
+});
+
+test('permite reservar con cualquier especialidad asignada, en cualquier posición', async () => {
+    const segunda = new mongoose.Types.ObjectId();
+
+    prepararDependencias(
+        crearMedico({
+            especialidades: [
+                new mongoose.Types.ObjectId(ESPECIALIDAD_ID),
+                segunda,
+            ],
+        })
+    );
+
+    const obtenerDatosCreados = prepararCreacion({
+        _id: new mongoose.Types.ObjectId(),
+    });
+
+    await turnoService.createTurno(
+        crearDatos({ especialidad: segunda.toString() }),
+        { ahora: AHORA, zonaHoraria: ZONA }
+    );
+
+    const datosCreados = obtenerDatosCreados();
+
+    // El turno conserva una única especialidad, la reservada.
+    assert.equal(
+        datosCreados?.especialidad,
+        segunda.toString()
     );
 });
 
@@ -305,6 +335,7 @@ test('traduce el duplicado de la base a un conflicto de horario', async () => {
     mock.method(TurnoModel, 'create', async () => {
         throw Object.assign(new Error('duplicado'), {
             code: 11000,
+            keyPattern: { medico: 1, fechaTurno: 1 },
         });
     });
 
@@ -319,6 +350,30 @@ test('traduce el duplicado de la base a un conflicto de horario', async () => {
     );
 });
 
+test('no traduce un duplicado desconocido a horario ocupado', async () => {
+    prepararDependencias();
+
+    const errorDuplicado = Object.assign(
+        new Error('duplicado desconocido'),
+        {
+            code: 11000,
+            keyPattern: { otraClave: 1 },
+        }
+    );
+
+    mock.method(TurnoModel, 'create', async () => {
+        throw errorDuplicado;
+    });
+
+    await assert.rejects(
+        turnoService.createTurno(crearDatos(), {
+            ahora: AHORA,
+            zonaHoraria: ZONA,
+        }),
+        (error: unknown) => error === errorDuplicado
+    );
+});
+
 test('dos reservas simultáneas del mismo horario no se confirman juntas', async () => {
     prepararDependencias();
 
@@ -330,6 +385,7 @@ test('dos reservas simultáneas del mismo horario no se confirman juntas', async
         if (creaciones === 2) {
             throw Object.assign(new Error('duplicado'), {
                 code: 11000,
+                keyPattern: { medico: 1, fechaTurno: 1 },
             });
         }
 

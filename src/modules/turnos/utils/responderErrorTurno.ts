@@ -4,6 +4,8 @@ import respuestaEstandar from '../../../utils/respuestaEstandar';
 
 import { MENSAJES_TURNO } from '../constants/turno.messages';
 import {
+    esDuplicadoDeCampo,
+    esDuplicadoDeTurno,
     esErrorDuplicado,
     estadoHttpParaErrorTurno,
 } from './erroresTurno';
@@ -38,11 +40,47 @@ export const responderErrorTurno = (
     }
 
     if (esErrorDuplicado(error)) {
+        if (esDuplicadoDeCampo(error, 'dni')) {
+            return respuestaEstandar(
+                res,
+                400,
+                false,
+                'El DNI ya está registrado',
+                'Ya existe un paciente registrado con ese DNI'
+            );
+        }
+
+        if (esDuplicadoDeCampo(error, 'email')) {
+            return respuestaEstandar(
+                res,
+                400,
+                false,
+                'El correo electrónico ya está registrado',
+                'Ya existe un paciente registrado con ese correo electrónico'
+            );
+        }
+
+        if (esDuplicadoDeTurno(error)) {
+            return respuestaEstandar(
+                res,
+                409,
+                false,
+                MENSAJES_TURNO.HORARIO_OCUPADO
+            );
+        }
+
+        // Un 11000 de un índice que no conocemos no debe disfrazarse
+        // de horario ocupado. Se registra y se informa un error general.
+        console.error(
+            `🔴 ${mensajeGeneral}: duplicado no reconocido`,
+            error
+        );
+
         return respuestaEstandar(
             res,
-            409,
+            500,
             false,
-            MENSAJES_TURNO.HORARIO_OCUPADO
+            mensajeGeneral
         );
     }
 
