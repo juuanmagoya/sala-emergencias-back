@@ -1,0 +1,59 @@
+
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure SSH
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Verify EC2 SSH fingerprint
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EXPECTED_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
+        run: |
+          ssh-keyscan -t ed25519 "$EC2_HOST" > ~/.ssh/known_hosts
+
+          ACTUAL_FINGERPRINT=$(ssh-keygen -lf ~/.ssh/known_hosts -E sha256 | awk '{print $2}')
+
+          if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "ERROR: EC2 SSH fingerprint mismatch"
+            exit 1
+          fi
+
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Execute deployment
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh \
+            -i ~/.ssh/id_ed25519 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$EC2_USER@$EC2_HOST" \
+            'cd /home/ubuntu/sala-emergencias-back && ./deploy.sh'
