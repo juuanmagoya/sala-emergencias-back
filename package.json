@@ -3,16 +3,18 @@
   "version": "1.1.0",
   "description": "",
   "main": "app.js",
-  "scripts": {
-    "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\"",
-    "test:auth": "node --import tsx --test \"src/modules/usuario/__tests__/*.test.ts\" \"src/middlewares/__tests__/*.test.ts\" \"src/routes/__tests__/*.test.ts\" \"src/config/__tests__/*.test.ts\" \"src/services/__tests__/*.test.ts\"",
-    "test:historiaclinica": "node --import tsx --test \"src/modules/historiaclinica/__tests__/*.test.ts\"",
-    "migrar:historias-clinicas": "tsx src/migraciones/migrarHistoriasClinicas.ts",
-    "migrar:medicos-especialidades": "tsx src/migraciones/migrarEspecialidadesMedicos.ts",
-    "migrar:limpiar-especialidad-medicos": "tsx src/migraciones/limpiarEspecialidadMedicos.ts",
-    "diagnosticar:turnos": "tsx src/migraciones/normalizarTurnos.ts",
-    "dev": "tsx watch src/server.ts"
-  },
+"scripts": {
+  "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\"",
+  "test:auth": "node --import tsx --test \"src/modules/usuario/__tests__/*.test.ts\" \"src/middlewares/__tests__/*.test.ts\" \"src/routes/__tests__/*.test.ts\" \"src/config/__tests__/*.test.ts\" \"src/services/__tests__/*.test.ts",
+  "test:historiaclinica": "node --import tsx --test \"src/modules/historiaclinica/__tests__/*.test.ts\"",
+  "migrar:historias-clinicas": "tsx src/migraciones/migrarHistoriasClinicas.ts",
+  "migrar:medicos-especialidades": "tsx src/migraciones/migrarEspecialidadesMedicos.ts",
+  "migrar:limpiar-especialidad-medicos": "tsx src/migraciones/limpiarEspecialidadMedicos.ts",
+  "diagnosticar:turnos": "tsx src/migraciones/normalizarTurnos.ts",
+  "dev": "tsx watch src/server.ts",
+  "build": "tsc",
+  "start": "node dist/server.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

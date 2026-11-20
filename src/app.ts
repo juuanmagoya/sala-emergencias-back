@@ -31,12 +31,17 @@ import historiaClinicaRoutes from './modules/historiaclinica/routes/historiaclin
 const app = express();
 
 // ==========================================
-// CONFIGURACIÓN
+// CONFIGURACIÓN CORS
 // ==========================================
+
+const origenesPermitidos = [
+    'http://localhost:5173',
+    'https://sala-emergencias-front.vercel.app',
+];
 
 app.use(
     cors({
-        origin: 'http://localhost:5173',
+        origin: origenesPermitidos,
     })
 );
 
