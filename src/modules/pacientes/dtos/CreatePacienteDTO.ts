@@ -9,6 +9,6 @@ export interface CreatePacienteDTO {
     dni: string;
     direccion: IDireccion;
     email: string;
-    telefono: ITelefono;
-    obraSocial: IObraSocial;
+    telefono?: ITelefono;
+    obraSocial?: IObraSocial;
 }

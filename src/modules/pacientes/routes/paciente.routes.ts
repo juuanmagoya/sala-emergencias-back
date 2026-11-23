@@ -8,6 +8,14 @@ import {
     updatePaciente,
     deletePaciente,
 } from '../controllers/paciente.controller';
+import {
+    previsualizarImportacion,
+    confirmarImportacion,
+} from '../controllers/importacionPacientes.controller';
+import {
+    limitadorImportacion,
+    recibirArchivoImportacion,
+} from '../middlewares/importacionPacientes.middleware';
 
 const router = Router();
 
@@ -17,6 +25,25 @@ router.get(
     '/',
     autorizarRoles('admin', 'medico', 'recepcionista'),
     getPacientes
+);
+
+// Importación masiva desde Excel: solo administración y recepción.
+// La previsualización no escribe en MongoDB; la confirmación vuelve a
+// validar el archivo y solo inserta pacientes nuevos.
+router.post(
+    '/importar/previsualizar',
+    autorizarRoles('admin', 'recepcionista'),
+    limitadorImportacion,
+    recibirArchivoImportacion,
+    previsualizarImportacion
+);
+
+router.post(
+    '/importar',
+    autorizarRoles('admin', 'recepcionista'),
+    limitadorImportacion,
+    recibirArchivoImportacion,
+    confirmarImportacion
 );
 
 // Registro y actualización de datos demográficos: administración y recepción.
