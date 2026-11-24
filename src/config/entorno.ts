@@ -52,6 +52,77 @@ export interface ConfiguracionEntorno {
     zonaHoraria: string;
 }
 
+export interface ConfiguracionBrevo {
+    apiKey: string;
+    remitenteEmail: string;
+    remitenteNombre: string;
+}
+
+export const NOMBRE_REMITENTE_BREVO_POR_DEFECTO =
+    'Sala de Emergencias Municipal Goya';
+
+const PATRON_EMAIL_BREVO =
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+const leerVariableObligatoria = (
+    nombre: string,
+    valor: string | undefined
+): string => {
+    const limpio = valor?.trim();
+
+    if (!limpio) {
+        throw new ErrorConfiguracion(
+            `Falta configurar ${nombre}`
+        );
+    }
+
+    return limpio;
+};
+
+// La API HTTP de Brevo se configura por entorno, igual que el resto de la
+// aplicación. Se lee en el momento del envío para que los tests puedan
+// definir sus propias variables sin depender de un archivo .env.
+export const leerConfiguracionBrevo = (): ConfiguracionBrevo => {
+    const apiKey = leerVariableObligatoria(
+        'BREVO_API_KEY',
+        process.env.BREVO_API_KEY
+    );
+
+    const remitenteEmail = leerVariableObligatoria(
+        'BREVO_SENDER_EMAIL',
+        process.env.BREVO_SENDER_EMAIL
+    );
+
+    if (!PATRON_EMAIL_BREVO.test(remitenteEmail)) {
+        throw new ErrorConfiguracion(
+            'BREVO_SENDER_EMAIL no es una dirección válida'
+        );
+    }
+
+    const remitenteNombre =
+        process.env.BREVO_SENDER_NAME?.trim() ||
+        NOMBRE_REMITENTE_BREVO_POR_DEFECTO;
+
+    return {
+        apiKey,
+        remitenteEmail,
+        remitenteNombre,
+    };
+};
+
+// La integración de email es opcional en entornos de prueba. Si hay al
+// menos una variable de Brevo configurada, se exige el conjunto completo
+// para no arrancar con una configuración a medias.
+const validarConfiguracionBrevoSiCorresponde = (): void => {
+    const hayConfiguracion =
+        Boolean(process.env.BREVO_API_KEY?.trim()) ||
+        Boolean(process.env.BREVO_SENDER_EMAIL?.trim());
+
+    if (hayConfiguracion) {
+        leerConfiguracionBrevo();
+    }
+};
+
 export const leerZonaHoraria = (): string =>
     process.env.ZONA_HORARIA?.trim() || ZONA_HORARIA_POR_DEFECTO;
 
@@ -86,6 +157,8 @@ export const validarConfiguracion = (): ConfiguracionEntorno => {
             'La variable ZONA_HORARIA no es una zona horaria válida'
         );
     }
+
+    validarConfiguracionBrevoSiCorresponde();
 
     return {
         puerto: leerEnteroPositivo(process.env.PORT, 3000),

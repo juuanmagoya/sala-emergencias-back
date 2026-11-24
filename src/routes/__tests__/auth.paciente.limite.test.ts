@@ -1,3 +1,4 @@
+
 import assert from 'node:assert/strict';
 import type { AddressInfo } from 'node:net';
 import { after, test } from 'node:test';
@@ -5,14 +6,13 @@ import { after, test } from 'node:test';
 import PacienteModel from '../../modules/pacientes/models/Paciente';
 
 // ============================================================
-// SERVIDOR REAL CON EL LIMITADOR DE LOGIN
+// SERVIDOR REAL CON EL LIMITADOR DE SOLICITUD DE OTP
 // ============================================================
 
 const JWT_SECRET_PRUEBA = 'secreto-de-prueba-paciente-limite';
 
 process.env.JWT_SECRET = JWT_SECRET_PRUEBA;
-process.env.LOGIN_RATE_LIMIT_MAX = '5';
-process.env.LOGIN_RATE_LIMIT_WINDOW_MS = '60000';
+process.env.OTP_SOLICITUD_RATE_LIMIT_MAX = '5';
 
 // Importación diferida: el limitador lee el entorno al cargarse.
 const app = require('../../app').default as typeof import('../../app').default;
@@ -60,10 +60,10 @@ const intentarLoginPaciente = () =>
     });
 
 // ============================================================
-// LÍMITE DE INTENTOS
+// LÍMITE DE SOLICITUDES OTP
 // ============================================================
 
-test('el login de pacientes aplica el limitador de intentos', async () => {
+test('el login de pacientes aplica el limitador de solicitudes OTP', async () => {
     const estados: number[] = [];
 
     for (let intento = 0; intento < 6; intento += 1) {
@@ -80,9 +80,10 @@ test('el login de pacientes aplica el limitador de intentos', async () => {
             assert.equal(cuerpo.success, false);
             assert.equal(cuerpo.data, null);
             assert.equal(typeof cuerpo.timestamp, 'string');
-            assert.match(
-                String(cuerpo.message),
-                /Demasiados intentos/
+
+            assert.equal(
+                cuerpo.message,
+                'Demasiadas solicitudes de códigos. Intentá nuevamente más tarde.'
             );
         }
     }

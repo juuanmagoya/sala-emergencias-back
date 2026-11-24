@@ -28,6 +28,11 @@ interface LoginPacienteDTO {
     telefono: string;
 }
 
+export interface PacienteCredenciales {
+    id: string;
+    nombre: string;
+}
+
 interface ErrorConEstado extends Error {
     statusCode?: number;
 }
@@ -119,15 +124,13 @@ const loginUsuario = async ({
 };
 
 // DNI + teléfono es una credencial débil: son datos personales que pueden
-// conocerse o filtrarse. No equivale a contraseña ni a un segundo factor.
-// Próximo paso recomendado: verificación OTP por WhatsApp/SMS antes de emitir
-// el token. No se implementa en esta etapa.
-const loginPaciente = async ({
+// conocerse o filtrarse. La autenticación HTTP de pacientes exige además un
+// OTP por email antes de emitir el token. Esta validación se mantiene separada
+// para reutilizarla en la solicitud y en la verificación del código.
+const validarCredencialesPaciente = async ({
     dni,
     telefono,
-}: LoginPacienteDTO) => {
-    const jwtSecret = obtenerJwtSecret();
-
+}: LoginPacienteDTO): Promise<PacienteCredenciales> => {
     const variantesDni = normalizarDni(dni);
 
     if (variantesDni.length === 0) {
@@ -168,9 +171,19 @@ const loginPaciente = async ({
     // Paciente no tiene un campo `activo` en el modelo actual. Si se agrega,
     // la comprobación debe hacerse acá con el mismo error genérico.
 
+    return {
+        id: paciente._id.toString(),
+        nombre: paciente.nombre,
+    };
+};
+
+const crearSesionPaciente = (
+    paciente: PacienteCredenciales,
+    jwtSecret: string
+) => {
     const payload: PacienteAutenticado = {
         tipo: 'paciente',
-        id: paciente._id.toString(),
+        id: paciente.id,
         rol: ROL_PACIENTE,
     };
 
@@ -181,11 +194,35 @@ const loginPaciente = async ({
     return {
         token,
         paciente: {
-            id: paciente._id.toString(),
+            id: paciente.id,
             nombre: paciente.nombre,
             rol: ROL_PACIENTE,
         },
     };
 };
 
-export { loginPaciente, loginUsuario };
+// Emite el JWT únicamente después de que la verificación OTP fue exitosa.
+const iniciarSesionPaciente = (paciente: PacienteCredenciales) =>
+    crearSesionPaciente(paciente, obtenerJwtSecret());
+
+// Se conserva el flujo histórico DNI + teléfono para uso interno y tests.
+// Las rutas HTTP ya no lo utilizan: solicitan y verifican un OTP.
+const loginPaciente = async ({
+    dni,
+    telefono,
+}: LoginPacienteDTO) => {
+    const jwtSecret = obtenerJwtSecret();
+    const paciente = await validarCredencialesPaciente({
+        dni,
+        telefono,
+    });
+
+    return crearSesionPaciente(paciente, jwtSecret);
+};
+
+export {
+    iniciarSesionPaciente,
+    loginPaciente,
+    loginUsuario,
+    validarCredencialesPaciente,
+};

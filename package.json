@@ -7,6 +7,7 @@
   "test": "node --import tsx --test \"src/**/__tests__/*.test.ts\"",
   "test:auth": "node --import tsx --test \"src/modules/usuario/__tests__/*.test.ts\" \"src/middlewares/__tests__/*.test.ts\" \"src/routes/__tests__/*.test.ts\" \"src/config/__tests__/*.test.ts\" \"src/services/__tests__/*.test.ts",
   "test:historiaclinica": "node --import tsx --test \"src/modules/historiaclinica/__tests__/*.test.ts\"",
+  "probar:correo": "tsx src/scripts/probarCorreoBrevo.ts",
   "migrar:historias-clinicas": "tsx src/migraciones/migrarHistoriasClinicas.ts",
   "migrar:medicos-especialidades": "tsx src/migraciones/migrarEspecialidadesMedicos.ts",
   "migrar:limpiar-especialidad-medicos": "tsx src/migraciones/limpiarEspecialidadMedicos.ts",
