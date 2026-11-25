@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 
 import express from 'express';
@@ -27,6 +28,7 @@ import consultorioRoutes from './modules/consultorio/routes/consultorio.routes.j
 import turnoRoutes from './modules/turnos/routes/turno.routes.js';
 import recepcionRoutes from './modules/recepcion/routes/recepcion.routes.js';
 import historiaClinicaRoutes from './modules/historiaclinica/routes/historiaclinica.routes.js';
+import chatbotRoutes from './modules/chatbot/routes/chatbot.routes.js';
 
 const app = express();
 
@@ -69,7 +71,6 @@ app.use(authMiddleware);
 // RUTAS PROTEGIDAS
 // ==========================================
 
-// Módulos migrados
 app.use('/api/v1/medicos', medicoRoutes);
 
 app.use('/api/v1/usuarios', usuarioRoutes);
@@ -85,6 +86,8 @@ app.use('/api/v1/turnos', turnoRoutes);
 app.use('/api/v1/recepcion', recepcionRoutes);
 
 app.use('/api/v1/historias-clinicas', historiaClinicaRoutes);
+
+app.use('/api/v1/chatbot', chatbotRoutes);
 
 // ==========================================
 // RUTA NO ENCONTRADA
