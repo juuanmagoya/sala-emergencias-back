@@ -29,6 +29,7 @@ import turnoRoutes from './modules/turnos/routes/turno.routes.js';
 import recepcionRoutes from './modules/recepcion/routes/recepcion.routes.js';
 import historiaClinicaRoutes from './modules/historiaclinica/routes/historiaclinica.routes.js';
 import chatbotRoutes from './modules/chatbot/routes/chatbot.routes.js';
+import registroPacienteRoutes from './modules/registroPaciente/routes/registroPaciente.routes.js';
 
 const app = express();
 
@@ -60,6 +61,8 @@ app.use(auditoriaMunicipal);
 // ==========================================
 
 app.use('/api/v1/auth', authRoutes);
+
+app.use('/api/v1/registro-paciente', registroPacienteRoutes);
 
 // ==========================================
 // AUTENTICACIÓN
